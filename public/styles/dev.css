@@ -1,0 +1,97 @@
+body {
+  padding-top: 65px;
+}
+
+
+.ais-SearchBox-input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  xbackground-color: #EEF3F8;
+  border: 1px solid #EEF3F8;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.ais-SearchBox-input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  xbackground-color: #EEF3F8;
+  xborder: 0;
+  border-radius: 0;
+  box-shadow: none;
+  caret-color: #5a5e9a;
+  color: #23263b;
+  flex: 1 1 0%;
+  font: inherit;
+  xmax-width: 100%;
+  padding-left: 2.5rem;
+}
+
+.input-border-none,
+.input-border-none:focus,
+.input-border-none:active {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: #fff;
+  border: 1px solid #fff !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+
+
+.thumbnail-container {
+  position: relative;
+  display: inline-block;
+}
+
+.gated {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  background-color: black;
+  color: white;
+  padding: 0px 10px 0px 10px;
+  border-radius: 0px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.duration {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  background-color: black;
+  color: white;
+  padding: 0px 10px 0px 10px;
+  border-radius: 0px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.title-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  /* Limit to 2 lines */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+}
+
+.ais-InfiniteHits-item {
+
+  padding: 0;
+  margin: 0;
+  display: inline-block;
+  vertical-align: top;
+  width: 25%;
+  height: 250px;
+  border: 0;
+  box-sizing: none;
+  box-shadow: none;
+}
