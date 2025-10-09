@@ -2,6 +2,9 @@ import { initSearch } from "./search.js"
 import { initVideoModalUi } from "./videoModalUi.js"
 import { initVideoPlayer } from "./videoPlayer.js"
 import { initVideoTracking } from "./videoTracking.js"
+import { initVideoContactUi } from "./videoContactUi.js"
+import { initAuth } from "./auth.js"
+import { initProfileModal } from "./profileModal.js"
 
 let portalConfig = null
 
@@ -40,6 +43,10 @@ async function initPortalConfig() {
 initPortalConfig()
 
 document.addEventListener("DOMContentLoaded", async () => {
+  initAuth()
+  initProfileModal()
+  initVideoContactUi()
+
   while (!portalConfig) {
     await new Promise(res => setTimeout(res, 50))
   }

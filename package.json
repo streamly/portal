@@ -1,5 +1,6 @@
 {
 	"dependencies": {
+		"@neondatabase/serverless": "^1.0.2",
 		"@vercel/node": "^5.3.24",
 		"axios": "^1.12.2",
 		"cookie": "^1.0.2",

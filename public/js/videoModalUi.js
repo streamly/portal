@@ -1,5 +1,6 @@
 import { getVideo } from "./videoData.js"
-import { pauseVideo } from './videoPlayer.js'
+import { pauseVideo } from "./videoPlayer.js"
+import { isLoggedIn, requireAuth } from "./auth.js"
 
 function formatDuration(seconds) {
   if (!seconds || seconds <= 0) return "0 minutes"
@@ -19,10 +20,16 @@ function formatUnixTimestamp(timestamp) {
 
 export function initVideoModalUi() {
   $(document).on("click", ".play", function () {
-    const { id } = $(this).data()
+    const { id, gated } = $(this).data()
     const data = getVideo(id)
     if (!data) {
       console.warn("No video found for id:", id)
+      return
+    }
+
+    const isGated = String(gated ?? data.gated) === "1" || gated === true || data.gated === true
+    if (isGated && !isLoggedIn()) {
+      requireAuth({ action: "open-video", payload: { id } })
       return
     }
 

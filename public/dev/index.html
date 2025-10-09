@@ -59,19 +59,22 @@
       </div>
 
       <!-- Right side (50%) -->
-      <div class="d-flex w-50 align-items-center justify-content-end">
-        <a id="signin" class="btn btn-link btn-sm bg-transparent me-2" title="Sign In">
+      <div class="d-flex w-50 align-items-center justify-content-end gap-2">
+        <span id="navUserName" class="small fw-semibold text-uppercase d-none"></span>
+        <a data-action="signin" class="btn btn-link btn-sm bg-transparent me-2" title="Sign In">
           SIGN IN
         </a>
         <div class="dropdown d-inline">
-          <a class="btn btn-link btn-sm bg-transparent" href="#" data-mdb-toggle="dropdown" aria-expanded="false">
+          <a class="btn btn-link btn-sm bg-transparent" href="#" data-mdb-toggle="dropdown" aria-expanded="false"
+            id="userMenuToggle">
             <i class="bx bx-user lead"></i>
           </a>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li><a id="profile" class="dropdown-item">Profile</a></li>
-            <li><a href="#" class="dropdown-item" tabindex="-1" aria-disabled="true">Settings</a></li>
-            <li><a id="about" type="button" class="dropdown-item">About</a></li>
-            <li><a id="signin" type="button" class="dropdown-item">Sign In</a></li>
+          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuToggle">
+            <li><a data-action="profile" class="dropdown-item">Profile</a></li>
+            <li><a data-action="settings" class="dropdown-item" tabindex="-1">Settings</a></li>
+            <li><a id="about" data-action="about" type="button" class="dropdown-item">About</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a data-action="signout" class="dropdown-item">Sign In</a></li>
           </ul>
         </div>
       </div>
@@ -220,12 +223,16 @@ background-size: cover;
                 About
                 <p class="video-description small" style="line-height:1.25;"></p>
                 Contact Us
-                <p>
-                  <textarea class="form-control bg-white my-1 mb-2" disabled id="message"
-                    placeholder="Enter your message" data-parsley-no-html-tags required \></textarea>
-                  <button class="btn btn-secondary shadow-none" id="send">Send</button>
-                  <button class="btn btn-link" id="signin">Sign In</button>
-                </p>
+                <form id="contactForm" class="mt-2" data-parsley-validate>
+                  <div class="mb-2">
+                    <textarea class="form-control bg-white" disabled id="message" name="message"
+                      placeholder="Enter your message" data-parsley-no-html-tags required></textarea>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-secondary shadow-none" id="send">Send</button>
+                    <button type="button" class="btn btn-link" data-action="signin">Sign In</button>
+                  </div>
+                </form>
               </div>
               <div class="col-5 ps-5">
                 Company
@@ -285,66 +292,78 @@ background-size: cover;
             aria-label="Close"></button>
         </div>
         <div class="modal-body p-5 small">
-          <div class="mb-3">
-            pic
-          </div>
           <form id="userProfile" method="POST" data-parsley-validate>
             <div class="mb-3">
-              <label class="form-label">First Name</label>
+              <label class="form-label" for="firstname">First Name</label>
               <input type="text" id="firstname" name="firstname" class="form-control" data-parsley-no-html-tags
-                required />
+                data-parsley-trigger="change" required />
             </div>
             <div class="mb-3">
-              <label class="form-label">Last Name</label>
+              <label class="form-label" for="lastname">Last Name</label>
               <input type="text" id="lastname" name="lastname" class="form-control" data-parsley-no-html-tags
-                required />
+                data-parsley-trigger="change" required />
             </div>
             <div class="mb-3">
-              <label class="form-label">Title/Position</label>
-              <input type="text" id="company" name="company" class="form-control" data-parsley-no-html-tags required />
+              <label class="form-label" for="position">Title/Position</label>
+              <input type="text" id="position" name="position" class="form-control" data-parsley-no-html-tags
+                data-parsley-trigger="change" required />
             </div>
             <div class="mb-3">
-              <label class="form-label">Company/Organization</label>
-              <input type="text" class="form-control" />
+              <label class="form-label" for="company">Company/Organization</label>
+              <input type="text" id="company" name="company" class="form-control" data-parsley-no-html-tags
+                data-parsley-trigger="change" required />
             </div>
             <div class="mb-3">
-              <label class="form-label">Industry</label>
-              <select id="industry" name="industry" class="form-control" data-parsley-no-html-tags required />
-              <option>
-              <option>Advertising
-              <option>Accounting
-              <option>Automotive
-                </select>
+              <label class="form-label" for="industry">Industry</label>
+              <select id="industry" name="industry" class="form-select" data-parsley-no-html-tags
+                data-parsley-trigger="change" required>
+                <option value="">Select an industry</option>
+                <option value="Advertising">Advertising</option>
+                <option value="Accounting">Accounting</option>
+                <option value="Automotive">Automotive</option>
+                <option value="Broadcast Media">Broadcast Media</option>
+                <option value="Education">Education</option>
+                <option value="Financial Services">Financial Services</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Hospitality">Hospitality</option>
+                <option value="Manufacturing">Manufacturing</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Technology">Technology</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
 
             <div class="mb-3">
-              <label class="form-label">Phone</label>
-              <input type="text" id="phone" name="phone" class="form-control" data-parsley-no-html-tags required />
+              <label class="form-label" for="phone">Phone</label>
+              <input type="text" id="phone" name="phone" class="form-control" data-parsley-no-html-tags
+                data-parsley-trigger="change" required />
             </div>
 
             <div class="mb-3">
-              <label class="form-label">Email</label>
+              <label class="form-label" for="email">Email</label>
               <input type="email" id="email" name="email" class="form-control bg-white" readonly
-                data-parsley-no-html-tags required />
+                data-parsley-no-html-tags data-parsley-trigger="change" required />
             </div>
             <div class="mb-3">
-              <label class="form-label">Website</label>
-              <input type="url" id="url" name="url" class="form-control" data-parsley-no-html-tags />
+              <label class="form-label" for="url">Website</label>
+              <input type="url" id="url" name="url" class="form-control" data-parsley-no-html-tags
+                data-parsley-trigger="change" />
             </div>
 
             <div class="mb-3">
-              <label class="form-label">About</label>
-              <textarea id="about" name="about" class="form-control" data-parsley-no-html-tags /></textarea>
+              <label class="form-label" for="about">About</label>
+              <textarea id="about" name="about" class="form-control" rows="4" data-parsley-no-html-tags
+                data-parsley-trigger="change"></textarea>
               <p class="pt-3 small text-muted" style="line-height:1.2;">
                 By using this service, you acknowledge and agree that you are voluntarily engaging with and providing
                 your profile information to content providers. You further confirm that you have read, understood, and
                 accepted our Terms of Service and Privacy Policy.
-
               </p>
             </div>
 
-
-            <button type="button" class="btn btn-secondary">Save</button>
+            <div class="d-flex justify-content-end">
+              <button type="submit" class="btn btn-secondary">Save</button>
+            </div>
           </form>
 
 

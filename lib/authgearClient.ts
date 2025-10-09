@@ -6,6 +6,7 @@ const AUTHGEAR_CLIENT_SECRET = process.env.AUTHGEAR_CLIENT_SECRET as string
 const AUTHGEAR_ADMIN_API_KEY = process.env.AUTHGEAR_ADMIN_API_KEY as string
 const BASE_URL = process.env.BASE_URL as string
 
+
 export interface AuthgearTokens {
     accessToken: string
     refreshToken?: string

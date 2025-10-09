@@ -18,19 +18,44 @@ export async function getPortalData(domain: string) {
     if (!dataStr) return null
 
     try {
-        return JSON.parse(dataStr)
+        return JSON.parse(dataStr) as ProfileCacheData
     } catch (err) {
         console.error(`Failed to parse portal data for domain=${domain}:`, err)
         return null
     }
 }
 
-export async function setProfileData(userId: string, metadata: object) {
-    await connectClient()
-    await redis.set(`profile:${userId}`, JSON.stringify(metadata))
+export interface ProfileCacheData {
+    firstname?: string
+    lastname?: string
+    position?: string
+    company?: string
+    industry?: string
+    phone?: string
+    email?: string
+    url?: string
+    about?: string
+    avatar?: string
+    createdAt?: string
+    updatedAt?: string
+    [key: string]: any
 }
 
-export async function getProfileData(userId: string) {
+export async function setProfileData(userId: string, metadata: Record<string, any>): Promise<ProfileCacheData> {
+    await connectClient()
+    const existing = await getProfileData(userId)
+    const now = new Date().toISOString()
+    const payload: ProfileCacheData = {
+        ...(existing || {}),
+        ...metadata,
+        createdAt: existing?.createdAt || now,
+        updatedAt: now,
+    }
+    await redis.set(`profile:${userId}`, JSON.stringify(payload))
+    return payload
+}
+
+export async function getProfileData(userId: string): Promise<ProfileCacheData | null> {
     await connectClient()
     const dataStr = await redis.get(`profile:${userId}`)
     if (!dataStr) {
