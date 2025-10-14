@@ -36,7 +36,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         console.log("Generated scoped Typesense key (truncated):", scopedKey.slice(0, 10) + "...")
 
-        // Derive viewer ID from IP
         const clientIp =
             (req.headers["x-forwarded-for"] as string)?.split(",")[0] ||
             req.socket?.remoteAddress ||

@@ -6,9 +6,11 @@
 		"cookie": "^1.0.2",
 		"dotenv": "^17.2.3",
 		"drizzle-orm": "^0.44.6",
+		"jwt-decode": "^4.0.0",
 		"md5": "^2.3.0",
 		"redis": "^5.8.3",
-		"typesense": "^2.1.0"
+		"typesense": "^2.1.0",
+		"zod": "^4.1.12"
 	},
 	"devDependencies": {
 		"@types/md5": "^2.3.5",

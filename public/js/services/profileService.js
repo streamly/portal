@@ -1,10 +1,3 @@
-export async function fetchProfileData() {
-  const res = await fetch("/api/user", { credentials: "include" })
-  if (!res.ok) throw new Error(`Profile fetch failed: ${res.status}`)
-  const data = await res.json()
-  return data?.profile || null
-}
-
 export async function updateProfile(metadata) {
   const res = await fetch("/api/user", {
     method: "POST",

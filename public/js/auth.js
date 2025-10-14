@@ -10,78 +10,60 @@ const PENDING_CONTEXT_KEY = "portal:pending-context"
 const STATE_SESSION_KEY = "portal:auth-state-nonce"
 const NONCE_COOKIE_NAME = "auth_nonce"
 
-function parseCookies() {
-  return document.cookie.split("; ").reduce((acc, part) => {
-    if (!part) return acc
-    const [key, ...valueParts] = part.split("=")
-    const value = valueParts.join("=")
-    if (!key) return acc
-    acc[decodeURIComponent(key)] = decodeURIComponent(value || "")
-    return acc
-  }, /** @type {Record<string, string>} */ ({}))
+// ---------------- Cookie Helpers (using Cookie Store API) ----------------
+
+async function getCookie(name) {
+  try {
+    const cookie = await cookieStore.get(name)
+    return cookie?.value ?? null
+  } catch {
+    return null
+  }
 }
 
-function getCookie(name) {
-  const cookies = parseCookies()
-  return cookies[name] ?? null
+async function setCookie(name, value, maxAge = 60 * 60 * 24 * 30) {
+  try {
+    await cookieStore.set({
+      name,
+      value,
+      path: "/",
+      sameSite: "lax",
+      secure: true,
+      expires: Date.now() + maxAge * 1000,
+    })
+  } catch (err) {
+    console.warn("Failed to set cookie:", name, err)
+  }
 }
+
+// ---------------- Nonce & State Management ----------------
 
 function generateNonce() {
-  try {
-    if (window.crypto?.getRandomValues) {
-      const arr = new Uint8Array(16)
-      window.crypto.getRandomValues(arr)
-      return Array.from(arr, byte => byte.toString(16).padStart(2, "0")).join("")
-    }
-  } catch (err) {
-    console.warn("Crypto random generation failed, falling back to Math.random", err)
-  }
-
-  return Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join("")
+  const arr = new Uint8Array(16)
+  crypto.getRandomValues(arr)
+  return Array.from(arr, b => b.toString(16).padStart(2, "0")).join("")
 }
 
-function rememberNonce(nonce) {
-  try {
-    sessionStorage.setItem(STATE_SESSION_KEY, nonce)
-  } catch (err) {
-    console.warn("Unable to persist auth state nonce:", err)
-  }
-
-  try {
-    document.cookie = `${NONCE_COOKIE_NAME}=${encodeURIComponent(nonce)}; path=/; max-age=600; SameSite=Lax; Secure`
-  } catch (err) {
-    console.warn("Unable to persist nonce cookie:", err)
-  }
+async function rememberNonce(nonce) {
+  sessionStorage.setItem(STATE_SESSION_KEY, nonce)
+  await setCookie(NONCE_COOKIE_NAME, nonce, 600)
 }
 
 function clearStoredNonce() {
-  try {
-    sessionStorage.removeItem(STATE_SESSION_KEY)
-  } catch (err) {
-    console.warn("Unable to clear auth state nonce:", err)
-  }
+  sessionStorage.removeItem(STATE_SESSION_KEY)
 }
 
 function buildState() {
   const domain = window.location.hostname
-  const referral = getCookie("referral") || ""
-  const nonce = generateNonce()
-  rememberNonce(nonce)
-
-  const payload = {
+  return btoa(JSON.stringify({
     v: 1,
     domain,
-    referral,
-    nonce,
-  }
-
-  try {
-    return btoa(JSON.stringify(payload))
-  } catch (err) {
-    console.warn("Failed to encode auth state payload, falling back to legacy format:", err)
-    return `${domain}:${referral}`
-  }
+    referral: "",
+    nonce: generateNonce(),
+  }))
 }
+
+// ---------------- Auth Flow ----------------
 
 function buildAuthUrl() {
   const state = encodeURIComponent(buildState())
@@ -96,225 +78,114 @@ function buildAuthUrl() {
   )
 }
 
-function persistReturnLocation() {
-  try {
-    sessionStorage.setItem(RETURN_TO_KEY, window.location.href)
-  } catch (err) {
-    console.warn("Unable to persist return location:", err)
-  }
+export async function isLoggedIn() {
+  return Boolean(await getCookie("userId"))
 }
 
-function persistPendingContext(context) {
-  if (!context) return
-  try {
-    sessionStorage.setItem(PENDING_CONTEXT_KEY, JSON.stringify(context))
-  } catch (err) {
-    console.warn("Unable to persist pending context:", err)
+export async function getUserInfoFromCookies() {
+  const fields = ["userId", "firstname", "lastname", "email", "referral", "profileComplete"]
+  const result = {}
+  for (const f of fields) {
+    result[f] = (await getCookie(f)) || ""
   }
-}
-
-function consumePendingContext() {
-  try {
-    const raw = sessionStorage.getItem(PENDING_CONTEXT_KEY)
-    if (!raw) return null
-    sessionStorage.removeItem(PENDING_CONTEXT_KEY)
-    return JSON.parse(raw)
-  } catch (err) {
-    console.warn("Unable to read pending context:", err)
-    return null
-  }
-}
-
-function consumeReturnLocation() {
-  try {
-    const href = sessionStorage.getItem(RETURN_TO_KEY)
-    if (!href) return null
-    sessionStorage.removeItem(RETURN_TO_KEY)
-    return href
-  } catch (err) {
-    console.warn("Unable to read return location:", err)
-    return null
-  }
-}
-
-export function isLoggedIn() {
-  return Boolean(getCookie("userId"))
-}
-
-export function getUserInfoFromCookies() {
-  return {
-    userId: getCookie("userId"),
-    firstname: getCookie("firstname"),
-    lastname: getCookie("lastname"),
-    email: getCookie("email"),
-    referral: getCookie("referral"),
-    profileComplete: getCookie("profileComplete"),
-  }
+  return result
 }
 
 export function startAuthFlow(context) {
-  persistReturnLocation()
-  if (context) persistPendingContext(context)
+  sessionStorage.setItem(RETURN_TO_KEY, window.location.href)
+  if (context) sessionStorage.setItem(PENDING_CONTEXT_KEY, JSON.stringify(context))
   window.location.href = buildAuthUrl()
 }
 
-export function requireAuth(context) {
-  if (isLoggedIn()) {
-    return true
-  }
+export async function requireAuth(context) {
+  if (await isLoggedIn()) return true
   startAuthFlow(context)
   return false
 }
 
 function handleSignOut() {
-  const domain = window.location.hostname
-  const redirect = `https://${domain}`
-  const logoutUrl = `${AUTH_LOGOUT_BASE_URL}/logout?redirect_uri=${encodeURIComponent(redirect)}`
-  window.location.href = logoutUrl
+  console.log("Clicked signout")
+
+  const cookieNames = [
+    "userId",
+    "firstname",
+    "lastname",
+    "email",
+    "url",
+    "industry",
+    "position",
+    "organization",
+    "about",
+    "referral",
+    "profileComplete",
+    "auth_nonce",
+  ]
+
+  const expire = "Thu, 01 Jan 1970 00:00:00 GMT"
+
+  for (const name of cookieNames) {
+    // Clear default path
+    document.cookie = `${name}=; Path=/; Expires=${expire}; Secure; SameSite=Lax`
+
+    // Clear possible domain-scoped cookie
+    const hostname = location.hostname
+    const parts = hostname.split(".")
+    if (parts.length > 1) {
+      const rootDomain = parts.slice(-2).join(".")
+      document.cookie = `${name}=; Domain=.${rootDomain}; Path=/; Expires=${expire}; Secure; SameSite=Lax`
+    }
+  }
+
+  console.info("All cookies cleared.")
+
+  setTimeout(() => window.location.reload(), 200)
 }
 
-function updateNavbar() {
-  const { firstname, lastname } = getUserInfoFromCookies()
-  const loggedIn = isLoggedIn()
+// ---------------- UI Updates ----------------
+
+async function updateNavbar() {
+  const { firstname, lastname } = await getUserInfoFromCookies()
+  const loggedIn = await isLoggedIn()
   const navUserName = document.getElementById("navUserName")
-  
+
   if (navUserName) {
     const fullName = [firstname, lastname].filter(Boolean).join(" ")
     navUserName.textContent = fullName
     navUserName.classList.toggle("d-none", !loggedIn || !fullName)
   }
 
-  const signInButtons = document.querySelectorAll('[data-action="signin"].btn')
-  signInButtons.forEach(btn => {
-    btn.classList.toggle("d-none", loggedIn)
-  })
-
-  const signOutItems = document.querySelectorAll('[data-action="signout"]')
-  signOutItems.forEach(item => {
-    item.textContent = loggedIn ? "Sign Out" : "Sign In"
-  })
+  document.querySelectorAll('[data-action="signin"].btn')
+    .forEach(btn => btn.classList.toggle("d-none", loggedIn))
+  document.querySelectorAll('[data-action="signout"]')
+    .forEach(item => item.textContent = loggedIn ? "Sign Out" : "Sign In")
 }
 
-function resumePendingActionIfNeeded() {
-  if (!isLoggedIn()) return
-  const context = consumePendingContext()
-  if (!context) return
-  setTimeout(() => {
-    document.dispatchEvent(new CustomEvent("auth:resume", { detail: context }))
-  }, 100)
-}
-
-function redirectIfReturnLocationMismatch() {
-  if (!isLoggedIn()) return
-  const href = consumeReturnLocation()
-  if (!href) return
-  if (href !== window.location.href) {
-    try {
-      const current = new URL(window.location.href)
-      const target = new URL(href)
-      if (current.pathname === target.pathname && current.search === target.search) {
-        return
-      }
-    } catch (_) {
-      // ignore parsing issues
-    }
-    window.history.replaceState({}, "", href)
-  }
-}
-
-function maybeForceProfileCompletion() {
-  const { profileComplete, firstname, lastname } = getUserInfoFromCookies()
-  const needsProfile = !firstname || !lastname || profileComplete === "0"
-  if (!needsProfile) return
-  openProfileModal({ force: true })
-}
+// ---------------- Event Handling ----------------
 
 function handleActionClick(event) {
-  const target = event.target instanceof Element ? event.target : null
+  const target = event.target.closest("[data-action]")
   if (!target) return
-  const actionElement = target.closest("[data-action]")
-  if (!actionElement) return
-  const action = actionElement.getAttribute("data-action")
+  const action = target.getAttribute("data-action")
   if (!action) return
 
-  if (["signin", "signout", "profile", "settings"].includes(action)) {
-    event.preventDefault()
-  }
+  event.preventDefault()
 
   switch (action) {
-    case "signin":
-      startAuthFlow()
-      break
-    case "signout":
-      if (isLoggedIn()) {
-        handleSignOut()
-      } else {
-        startAuthFlow()
-      }
-      break
-    case "profile":
-      if (isLoggedIn()) {
-        openProfileModal()
-      } else {
-        startAuthFlow({ action: "open-profile" })
-      }
-      break
+    case "signin": startAuthFlow(); break
+    case "signout": handleSignOut(); break
+    case "profile": openProfileModal(); break
     case "settings":
-      if (isLoggedIn()) {
-        window.location.href = `${AUTH_BASE_URL}/settings`
-      } else {
-        startAuthFlow({ action: "open-settings" })
-      }
+      window.location.href = `${AUTH_BASE_URL}/settings`
       break
-    default:
-      break
+    default: break
   }
 }
 
-function handleAuthResume(event) {
-  const { detail } = event
-  if (!detail || typeof detail !== "object") return
-  const { action, payload } = detail
+// ---------------- Init ----------------
 
-  switch (action) {
-    case "open-profile":
-      openProfileModal({ force: true })
-      break
-    case "open-video":
-      if (payload?.id) {
-        const url = new URL(window.location.href)
-        url.searchParams.set("v", payload.id)
-        window.location.href = url.toString()
-      }
-      break
-    case "submit-contact":
-      document.dispatchEvent(new CustomEvent("contact:enable", { detail: payload || {} }))
-      break
-    default:
-      break
-  }
-}
-
-export function initAuth() {
-  updateNavbar()
-  maybeForceProfileCompletion()
-  resumePendingActionIfNeeded()
-  redirectIfReturnLocationMismatch()
-
+export async function initAuth() {
+  await updateNavbar()
   document.addEventListener("click", handleActionClick)
-  document.addEventListener("auth:resume", handleAuthResume)
-
-  document.addEventListener("auth:updated", () => {
-    updateNavbar()
-    maybeForceProfileCompletion()
-    clearStoredNonce()
-  })
-}
-
-export function notifyAuthUpdated() {
-  document.dispatchEvent(new CustomEvent("auth:updated"))
-}
-
-export function markPendingAction(context) {
-  persistPendingContext(context)
+  document.addEventListener("auth:updated", updateNavbar)
+  clearStoredNonce()
 }

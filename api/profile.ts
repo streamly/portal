@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 import { serialize } from "cookie"
-import { exchangeCodeForTokens, fetchUserProfile } from "../lib/authgearClient.js"
+import { exchangeCodeForTokens, fetchUserByEmail, fetchUserProfile } from "../lib/authgearClient.js"
 
 const NONCE_COOKIE_NAME = "auth_nonce"
+const AUTHGEAR_HOSTS = ["go.auth.moi", "auth.moi"]
 
 interface DecodedState {
     domain: string
@@ -54,7 +55,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const referralId = referral || referralFromQuery
 
         const host = req.headers.host || ""
-        const AUTHGEAR_HOSTS = ["go.auth.moi", "auth.moi"]
 
         if (AUTHGEAR_HOSTS.some(h => host.endsWith(h))) {
             const redirectUrl = buildRedirectUrl(normalizedDomain, req.query)
@@ -65,23 +65,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const tokens = await exchangeCodeForTokens(code)
         const profile = await fetchUserProfile(tokens.accessToken)
-        const { sub: userId, given_name, family_name, email } = profile
+
+        if (!profile.email) {
+            console.error('User email is missing')
+            return res.status(500).send("Internal Server Error")
+        }
+
+        const user = await fetchUserByEmail(profile.email)
+
+        if (!user) {
+            console.error('User not found')
+            return res.status(500).send("Internal Server Error")
+        }
+
+        const { id: userId, standardAttributes, customAttributes } = user
+
+        console.log("Received user profile", profile)
+        console.log("Received user", user)
+
+        const firstname = standardAttributes?.given_name || ""
+        const lastname = standardAttributes?.family_name || ""
+        const email = standardAttributes?.email || ""
+        const website = standardAttributes?.website || ""
+
+        const industry = customAttributes?.industry || ""
+        const position = customAttributes?.position || ""
+        const organization = customAttributes?.organization || ""
+        const about = customAttributes?.about || ""
+
+        const referralCookie = referralId || ""
+        const profileComplete = firstname && lastname ? "1" : "0"
 
         const baseCookieOptions = {
             path: "/",
             httpOnly: false,
             sameSite: "lax" as const,
             secure: true,
-            maxAge: 60 * 60 * 24 * 30,
+            maxAge: 60 * 60 * 24 * 30, // 30 days
         }
 
         const cookies = [
             serialize("userId", userId, baseCookieOptions),
-            serialize("firstname", given_name || "", baseCookieOptions),
-            serialize("lastname", family_name || "", baseCookieOptions),
-            serialize("email", email || "", baseCookieOptions),
-            serialize("referral", referralId || "", baseCookieOptions),
-            serialize("profileComplete", given_name && family_name ? "1" : "0", baseCookieOptions),
+            serialize("firstname", firstname, baseCookieOptions),
+            serialize("lastname", lastname, baseCookieOptions),
+            serialize("email", email, baseCookieOptions),
+            serialize("url", website, baseCookieOptions),
+            serialize("industry", industry, baseCookieOptions),
+            serialize("position", position, baseCookieOptions),
+            serialize("organization", organization, baseCookieOptions),
+            serialize("about", about, baseCookieOptions),
+            serialize("referral", referralCookie, baseCookieOptions),
+            serialize("profileComplete", profileComplete, baseCookieOptions),
             serialize(NONCE_COOKIE_NAME, "", { ...baseCookieOptions, maxAge: 0 }),
         ]
 

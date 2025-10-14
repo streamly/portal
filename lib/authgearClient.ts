@@ -1,11 +1,18 @@
 import axios, { AxiosInstance } from "axios"
+import { createSign } from "crypto"
+
+// ---------------------- ENV CONSTANTS ----------------------
 
 const AUTHGEAR_ENDPOINT = process.env.AUTHGEAR_ENDPOINT as string
 const AUTHGEAR_CLIENT_ID = process.env.AUTHGEAR_CLIENT_ID as string
 const AUTHGEAR_CLIENT_SECRET = process.env.AUTHGEAR_CLIENT_SECRET as string
-const AUTHGEAR_ADMIN_API_KEY = process.env.AUTHGEAR_ADMIN_API_KEY as string
+const AUTHGEAR_ADMIN_KEY_ID = process.env.AUTHGEAR_ADMIN_KEY_ID as string
+const AUTHGEAR_ADMIN_PRIVATE_KEY_PEM = process.env.AUTHGEAR_ADMIN_PRIVATE_KEY_PEM
+const AUTHGEAR_PROJECT_ID = process.env.AUTHGEAR_PROJECT_ID as string
+const AUTHGEAR_ADMIN_GRAPHQL_ENDPOINT = process.env.AUTHGEAR_ADMIN_GRAPHQL_ENDPOINT as string
 const BASE_URL = process.env.BASE_URL as string
 
+// ---------------------- INTERFACES ----------------------
 
 export interface AuthgearTokens {
     accessToken: string
@@ -23,10 +30,124 @@ export interface AuthgearProfile {
     [key: string]: any
 }
 
+interface AuthgearUser {
+    id: string
+    standardAttributes: {
+        email: string
+        given_name: string,
+        family_name: string,
+        website: string
+    }
+    customAttributes: {
+        industry: string
+        position: string
+        organization: string
+        about: string
+    }
+}
+
+interface UserAttributes {
+    standardAttributes: Record<string, any>
+    customAttributes: Record<string, any>
+}
+
+interface UpdatePayload {
+    firstname?: string
+    lastname?: string
+    phone?: string
+    url?: string
+    about?: string
+    [key: string]: any
+}
+
+// ---------------------- SETUP ----------------------
+
 const authgearClient: AxiosInstance = axios.create({
     baseURL: AUTHGEAR_ENDPOINT,
     timeout: 5000,
 })
+
+let cachedAdminToken: { token: string; expiresAt: number } | null = null
+
+// ---------------------- HELPERS ----------------------
+
+function toBase64Url(input: Buffer | string): string {
+    const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input)
+    return buffer
+        .toString("base64")
+        .replace(/=/g, "")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+}
+
+function loadAdminPrivateKey(): string {
+    if (!AUTHGEAR_ADMIN_PRIVATE_KEY_PEM)
+        throw new Error("AUTHGEAR_ADMIN_PRIVATE_KEY_PEM is not configured")
+
+    return AUTHGEAR_ADMIN_PRIVATE_KEY_PEM.replace(/\\n/g, "\n").trim()
+}
+
+function generateAdminJwt(): string {
+    if (!AUTHGEAR_PROJECT_ID || !AUTHGEAR_ADMIN_KEY_ID)
+        throw new Error("Authgear Admin key or project ID missing")
+
+    const privateKey = loadAdminPrivateKey()
+    const now = Math.floor(Date.now() / 1000)
+    const exp = now + 5 * 60 // valid for 5 min
+
+    const header = { alg: "RS256", typ: "JWT", kid: AUTHGEAR_ADMIN_KEY_ID }
+    const payload = { aud: [AUTHGEAR_PROJECT_ID], iat: now, exp }
+
+    const signingInput = `${toBase64Url(JSON.stringify(header))}.${toBase64Url(JSON.stringify(payload))}`
+    const signature = createSign("RSA-SHA256").update(signingInput).sign(privateKey)
+    const token = `${signingInput}.${toBase64Url(signature)}`
+
+    cachedAdminToken = { token, expiresAt: exp }
+    return token
+}
+
+function getAdminJwt(): string {
+    const now = Math.floor(Date.now() / 1000)
+    if (cachedAdminToken && cachedAdminToken.expiresAt - 30 > now) {
+        return cachedAdminToken.token
+    }
+    return generateAdminJwt()
+}
+
+function toAuthgearNodeId(uuid: string): string {
+    return toBase64Url(`User:${uuid}`)
+}
+
+// ---------------------- UNIVERSAL ADMIN REQUEST ----------------------
+
+export async function authgearAdminRequest<T>(
+    query: string,
+    variables?: Record<string, any>
+): Promise<T> {
+    try {
+        const res = await axios.post(
+            AUTHGEAR_ADMIN_GRAPHQL_ENDPOINT,
+            { query, variables },
+            {
+                headers: {
+                    Authorization: `Bearer ${getAdminJwt()}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        )
+
+        if (res.data.errors?.length) {
+            throw new Error(`GraphQL Error: ${JSON.stringify(res.data.errors)}`)
+        }
+
+        return res.data.data as T
+    } catch (err: any) {
+        const msg = err.response?.data || err.message
+        throw new Error(`Authgear Admin request failed: ${JSON.stringify(msg)}`)
+    }
+}
+
+// ---------------------- OAUTH ----------------------
 
 export async function exchangeCodeForTokens(code: string): Promise<AuthgearTokens> {
     try {
@@ -43,12 +164,14 @@ export async function exchangeCodeForTokens(code: string): Promise<AuthgearToken
             { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
         )
 
-        const data = res.data
+        const d = res.data
+
+        console.log('Exchanged tokens', res.data)
         return {
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-            idToken: data.id_token,
-            expiresIn: data.expires_in,
+            accessToken: d.access_token,
+            refreshToken: d.refresh_token,
+            idToken: d.id_token,
+            expiresIn: d.expires_in,
         }
     } catch (err: any) {
         const msg = err.response?.data || err.message
@@ -67,18 +190,20 @@ export async function refreshTokens(refreshToken: string): Promise<AuthgearToken
                 client_secret: AUTHGEAR_CLIENT_SECRET,
             })
         )
-        const data = res.data
+        const d = res.data
         return {
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-            idToken: data.id_token,
-            expiresIn: data.expires_in,
+            accessToken: d.access_token,
+            refreshToken: d.refresh_token,
+            idToken: d.id_token,
+            expiresIn: d.expires_in,
         }
     } catch (err: any) {
         const msg = err.response?.data || err.message
         throw new Error(`Token refresh failed: ${JSON.stringify(msg)}`)
     }
 }
+
+// ---------------------- USER QUERIES ----------------------
 
 export async function fetchUserProfile(accessToken: string): Promise<AuthgearProfile> {
     try {
@@ -92,19 +217,131 @@ export async function fetchUserProfile(accessToken: string): Promise<AuthgearPro
     }
 }
 
-export async function updateUserMetadata(userId: string, metadata: Record<string, any>) {
+export async function fetchUserByEmail(email: string): Promise<AuthgearUser | null> {
+    const query = `
+    query ($email: String!) {
+      getUsersByStandardAttribute(attributeName: "email", attributeValue: $email) {
+        id
+        standardAttributes
+        customAttributes
+      }
+    }
+  `
+    const data = await authgearAdminRequest<{
+        getUsersByStandardAttribute: AuthgearUser[]
+    }>(query, { email })
+
+    const user = data.getUsersByStandardAttribute[0]
+
+    return user
+}
+
+export async function fetchUserAttributes(userId: string): Promise<UserAttributes> {
+    const query = `
+    query GetUser($userID: ID!) {
+      node(id: $userID) {
+        ... on User {
+          id
+          standardAttributes
+          customAttributes
+        }
+      }
+    }
+  `
+    const data = await authgearAdminRequest<{ node: any }>(query, { userID: userId })
+
+    if (!data.node) throw new Error("User not found")
+
+    return {
+        standardAttributes: data.node.standardAttributes || {},
+        customAttributes: data.node.customAttributes || {},
+    }
+}
+
+// ---------------------- MAPPERS ----------------------
+
+export function mapUpdatesToAuthgear(updates: UpdatePayload) {
+    const standard: Record<string, any> = {}
+    const custom: Record<string, any> = {}
+
+    for (const [key, value] of Object.entries(updates)) {
+        if (["firstname", "lastname", "phone", "url"].includes(key)) {
+            if (key === "firstname") standard["given_name"] = value
+            else if (key === "lastname") standard["family_name"] = value
+            else if (key === "phone") standard["phone_number"] = value
+            else if (key === "url") standard["website"] = value
+        } else {
+            custom[key] = value
+        }
+    }
+
+    return { standard, custom }
+}
+
+export function mergeAttributes(
+    existing: UserAttributes,
+    updates: ReturnType<typeof mapUpdatesToAuthgear>
+): UserAttributes {
+    return {
+        standardAttributes: { ...existing.standardAttributes, ...updates.standard },
+        customAttributes: { ...existing.customAttributes, ...updates.custom },
+    }
+}
+
+// ---------------------- MUTATIONS ----------------------
+
+export async function pushUserAttributes(userId: string, attributes: UserAttributes) {
+    const mutation = `
+    mutation UpdateUser(
+      $userID: ID!
+      $standardAttributes: UserStandardAttributes
+      $customAttributes: UserCustomAttributes
+    ) {
+      updateUser(
+        input: {
+          userID: $userID
+          standardAttributes: $standardAttributes
+          customAttributes: $customAttributes
+        }
+      ) {
+        user { id }
+      }
+    }
+  `
+
+    const data = await authgearAdminRequest<{ updateUser: { user: any } }>(mutation, {
+        userID: userId,
+        standardAttributes: attributes.standardAttributes,
+        customAttributes: attributes.customAttributes,
+    })
+
+    return data.updateUser?.user || null
+}
+
+export async function updateUserMetadata(userId: string, updates: Record<string, any>) {
     try {
-        const res = await authgearClient.patch(
-            `/api/admin/users/${userId}/metadata`,
-            { metadata },
-            {
-                headers: {
-                    Authorization: `Bearer ${AUTHGEAR_ADMIN_API_KEY}`,
-                    "Content-Type": "application/json",
-                },
-            }
-        )
-        return res.data
+        if ("email" in updates) delete updates.email
+
+        const existing = await fetchUserAttributes(userId)
+
+        const standardAttributes = {
+            ...existing.standardAttributes,
+            given_name: updates.firstname ?? existing.standardAttributes?.given_name ?? "",
+            family_name: updates.lastname ?? existing.standardAttributes?.family_name ?? "",
+            website: updates.url ?? existing.standardAttributes?.website,
+        }
+
+        const customAttributes = {
+            ...existing.customAttributes,
+            industry: updates.industry ?? existing.customAttributes?.industry ?? "",
+            position: updates.position ?? existing.customAttributes?.position ?? "",
+            organization: updates.company ?? existing.customAttributes?.organization ?? "",
+            about: updates.about ?? existing.customAttributes?.about,
+        }
+
+        const attributes = { standardAttributes, customAttributes }
+
+        return await pushUserAttributes(userId, attributes)
     } catch (err: any) {
         const msg = err.response?.data || err.message
         throw new Error(`Authgear metadata update failed: ${JSON.stringify(msg)}`)

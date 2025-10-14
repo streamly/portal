@@ -1,5 +1,5 @@
-import { isUserLoggedIn, getCookieValue } from "./utils.js"
-import { fetchProfileData, updateProfile } from "./services/profileService.js"
+import { updateProfile } from "./services/profileService.js"
+import { getCookieValue, isUserLoggedIn } from "./utils.js"
 
 const PROFILE_FIELDS = [
   "firstname",
@@ -20,17 +20,16 @@ let currentProfile = null
 let isSubmitting = false
 
 async function loadProfileFromCookies() {
-  const [firstname, lastname, email] = await Promise.all([
-    getCookieValue("firstname"),
-    getCookieValue("lastname"),
-    getCookieValue("email"),
-  ])
-
-  return {
-    firstname: firstname || "",
-    lastname: lastname || "",
-    email: email || "",
+  const profile = {}
+  for (const field of PROFILE_FIELDS) {
+    profile[field] = (await getCookieValue(field)) || ""
   }
+
+  profile.userId = (await getCookieValue("userId")) || ""
+  profile.referral = (await getCookieValue("referral")) || ""
+  profile.profileComplete = (await getCookieValue("profileComplete")) || "0"
+
+  return profile
 }
 
 function ensureModal() {
@@ -46,8 +45,8 @@ function ensureForm() {
   if (!formElement) {
     formElement = document.getElementById("userProfile")
     if (!formElement) throw new Error("Profile form not found")
-    saveButton = formElement.querySelector("button[type=submit]")
 
+    saveButton = formElement.querySelector("button[type=submit]")
     if (window.Parsley && typeof window.Parsley.addValidator === "function") {
       $(formElement).parsley()
     }
@@ -58,10 +57,7 @@ function ensureForm() {
 
 function disableForm(disabled) {
   if (!formElement) return
-  formElement.querySelectorAll("input, textarea, select, button").forEach(el => {
-    el.disabled = disabled
-  })
-
+  formElement.querySelectorAll("input, textarea, select, button").forEach(el => (el.disabled = disabled))
   if (saveButton) {
     saveButton.disabled = disabled
     saveButton.textContent = disabled ? "Saving..." : "Save"
@@ -70,39 +66,26 @@ function disableForm(disabled) {
 
 function fillForm(profile) {
   if (!formElement) return
-  PROFILE_FIELDS.forEach((field) => {
+  PROFILE_FIELDS.forEach(field => {
     const input = formElement.querySelector(`[name="${field}"]`)
-    if (!input) return
-    const value = profile?.[field] || ""
-    if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement) {
-      input.value = value
+    if (input && (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement)) {
+      input.value = profile?.[field] || ""
     }
   })
-}
-
-async function fetchProfile() {
-  if (!(await isUserLoggedIn())) return
-  try {
-    const remoteProfile = await fetchProfileData()
-    if (remoteProfile) {
-      const cookieProfile = await loadProfileFromCookies()
-      currentProfile = { ...cookieProfile, ...remoteProfile }
-      fillForm(currentProfile)
-    }
-  } catch (err) {
-    console.error("Failed to load profile:", err)
-  }
 }
 
 function gatherFormData() {
-  const metadata = {}
-  PROFILE_FIELDS.forEach((field) => {
+  const data = {}
+  PROFILE_FIELDS.forEach(field => {
     const input = formElement?.querySelector(`[name="${field}"]`)
-    if (!input) return
-    const value = input.value?.trim?.() ?? ""
-    metadata[field] = value
+    let value = input?.value?.trim?.() ?? ""
+    // optional fields should be undefined if empty
+    if ((field === "url" || field === "about") && value.length === 0) {
+      value = undefined
+    }
+    data[field] = value
   })
-  return metadata
+  return data
 }
 
 async function submitProfile(event) {
@@ -126,6 +109,12 @@ async function submitProfile(event) {
 
   try {
     const payload = await updateProfile(metadata)
+
+    Object.entries(metadata).forEach(([key, value]) => {
+      if (value === undefined) return
+      document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax; Secure`
+    })
+
     currentProfile = payload?.profile || metadata
     fillForm(currentProfile)
 
@@ -154,20 +143,11 @@ export async function openProfileModal(options = {}) {
     return
   }
 
-  if (!currentProfile || options.force) {
-    const cookieProfile = await loadProfileFromCookies()
-    if (!currentProfile || options.force) {
-      currentProfile = { ...(currentProfile || {}), ...cookieProfile }
-    }
-  }
+  const cookieProfile = await loadProfileFromCookies()
+  currentProfile = { ...cookieProfile }
 
   fillForm(currentProfile)
-  const modal = ensureModal()
-  modal.show()
-
-  if (!currentProfile || options.force) {
-    await fetchProfile()
-  }
+  ensureModal().show()
 }
 
 export function initProfileModal() {

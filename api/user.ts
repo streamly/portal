@@ -1,162 +1,123 @@
 import { VercelRequest, VercelResponse } from "@vercel/node"
 import { parse, serialize } from "cookie"
-import { upsertProfile, getProfile, ProfileMetadata } from "../db/profile.js"
+import { getProfile, ProfileMetadata, upsertProfile } from "../db/profile.js"
 import { updateUserMetadata } from "../lib/authgearClient.js"
 import { getProfileData, setProfileData } from "../lib/redisClient.js"
+import { UserMetadataSchema } from "../lib/validation.js"
 
-const ALLOWED_FIELDS = [
-    "firstname",
-    "lastname",
-    "position",
-    "company",
-    "industry",
-    "phone",
-    "email",
-    "url",
-    "about",
-    "avatar",
-] as const
+const NONCE_COOKIE_NAME = "auth_nonce"
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 days
 
-function sanitizeMetadata(input: Record<string, unknown>): ProfileMetadata {
-    const metadata: ProfileMetadata = {}
-    for (const key of ALLOWED_FIELDS) {
-        const value = input[key]
-        if (value === undefined || value === null) continue
-        if (typeof value === "string") {
-            metadata[key] = value.trim()
-        } else {
-            metadata[key] = value as any
-        }
-    }
-    return metadata
-}
+// -------------------- Helpers --------------------
 
-function resolveDomain(req: VercelRequest) {
-    const headerHost = (req.headers["x-forwarded-host"] as string) || req.headers.host || ""
-    return headerHost.split(":")[0]
-}
-
-function buildCookie(name: string, value: string, domain: string) {
-    return serialize(name, value, {
-        path: "/",
-        sameSite: "lax",
-        secure: true,
-        httpOnly: false,
-        maxAge: 60 * 60 * 24 * 30,
-        domain,
-    })
-}
-
-function isProfileComplete(metadata: ProfileMetadata) {
-    return Boolean(metadata.firstname && metadata.lastname)
+function resolveDomain(req: VercelRequest): string {
+    const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || ""
+    return host.split(":")[0]
 }
 
 function mergeProfiles(...profiles: Array<ProfileMetadata | null | undefined>): ProfileMetadata {
     return profiles.filter(Boolean).reduce<ProfileMetadata>((acc, profile) => {
-        for (const [key, value] of Object.entries(profile!)) {
-            if (value !== undefined && value !== null && value !== "") {
-                acc[key as keyof ProfileMetadata] = value
-            }
+        for (const [key, val] of Object.entries(profile!)) {
+            if (val != null && val !== "") acc[key as keyof ProfileMetadata] = val
         }
         return acc
     }, {})
 }
 
+function isProfileComplete(meta: ProfileMetadata) {
+    return Boolean(meta.firstname && meta.lastname)
+}
+
+// -------------------- Main Handler --------------------
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    console.log("Incoming request:", req.method, req.url)
     const cookies = parse(req.headers.cookie || "")
-    console.log("Parsed cookies:", cookies)
-    const userIdFromCookie = cookies.userId
-    const userIdFromBody = typeof req.body?.userId === "string" ? req.body.userId : undefined
-    const userId = userIdFromCookie || userIdFromBody
-    console.log("Resolved userId:", userId)
+    const userId = cookies.userId || req.body?.userId
 
-    if (!userId) {
-        console.warn("Unauthorized access - missing userId")
-        return res.status(401).json({ error: "Unauthorized" })
-    }
+    if (!userId) return res.status(401).json({ error: "Unauthorized" })
+    if (req.method !== "GET" && req.method !== "POST")
+        return res.status(405).json({ error: "Method not allowed" })
 
-    if (userIdFromBody && userIdFromCookie && userIdFromBody !== userIdFromCookie) {
-        console.warn("Forbidden - mismatched userId")
-        return res.status(403).json({ error: "Forbidden" })
-    }
+    try {
+        // -------------------- GET --------------------
+        if (req.method === "GET") {
+            const [redisProfile, dbProfile] = await Promise.all([
+                getProfileData(userId).catch(() => null),
+                getProfile(userId).catch(() => null),
+            ])
 
-    if (req.method === "GET") {
-        console.log("Fetching profile for userId:", userId)
-        try {
-            const redisProfile = await getProfileData(userId)
-            console.log("Redis profile:", redisProfile)
-            const dbProfile = await getProfile(userId)
-            console.log("DB profile:", dbProfile)
             const cookieProfile: ProfileMetadata = {
                 firstname: cookies.firstname,
                 lastname: cookies.lastname,
                 email: cookies.email,
             }
-            const profile = mergeProfiles(cookieProfile, dbProfile, redisProfile)
-            console.log("Merged profile:", profile)
-            return res.status(200).json({ profile })
-        } catch (err: any) {
-            console.error("getProfile error:", err)
-            return res.status(500).json({ error: "Internal server error" })
+
+            const merged = mergeProfiles(cookieProfile, dbProfile, redisProfile)
+            return res.status(200).json({ profile: merged })
         }
-    }
 
-    if (req.method !== "POST") {
-        console.warn("Method not allowed:", req.method)
-        return res.status(405).json({ error: "Method not allowed" })
-    }
-
-    try {
-        console.log("Processing profile update for userId:", userId)
+        // -------------------- POST (update) --------------------
         const metadataInput = req.body?.metadata
-        console.log("Incoming metadata:", metadataInput)
-        if (!metadataInput || typeof metadataInput !== "object") {
-            console.warn("Missing metadata in request")
+        if (!metadataInput || typeof metadataInput !== "object")
             return res.status(400).json({ error: "Missing metadata" })
+
+        console.log('Metadata', metadataInput)
+
+        const parsed = UserMetadataSchema.safeParse(metadataInput)
+        if (!parsed.success) {
+            console.warn("Invalid metadata:", parsed.error.flatten().fieldErrors)
+            return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() })
         }
 
-        const sanitized = sanitizeMetadata(metadataInput as Record<string, unknown>)
-        console.log("Sanitized metadata:", sanitized)
+        const sanitized = parsed.data
 
-        if (!sanitized.firstname || !sanitized.lastname) {
-            console.warn("Incomplete profile data - missing firstname or lastname")
-            return res.status(400).json({ error: "Firstname and lastname are required" })
-        }
+        // Update Authgear + cache + DB
+        await updateUserMetadata(userId, sanitized)
+        // const cacheRecord = await setProfileData(userId, sanitized)
+        // await upsertProfile(userId, cacheRecord)
 
-        if (!sanitized.email && cookies.email) {
-            sanitized.email = cookies.email
-        }
-
-        console.log("Updating Authgear metadata for user:", userId)
-        await updateUserMetadata(userId, sanitized as Record<string, any>)
-
-        console.log("Updating Redis cache")
-        const cacheRecord = await setProfileData(userId, sanitized as Record<string, any>)
-
-        console.log("Upserting into DB")
-        await upsertProfile(userId, cacheRecord)
-
+        // -------------------- Set All Cookies --------------------
         const domain = resolveDomain(req)
-        console.log("Resolved domain:", domain)
+        const profileComplete = isProfileComplete(sanitized) ? "1" : "0"
+        const referralCookie = cookies.referral || ""
 
-        if (domain) {
-            const profileCompleteValue = isProfileComplete(sanitized) ? "1" : "0"
-            console.log("Profile complete:", profileCompleteValue)
-            const cookiePayload = [
-                buildCookie("firstname", sanitized.firstname!, domain),
-                buildCookie("lastname", sanitized.lastname!, domain),
-                buildCookie("profileComplete", profileCompleteValue, domain),
-            ]
-            if (sanitized.email) {
-                cookiePayload.push(buildCookie("email", sanitized.email, domain))
-            }
-            console.log("Setting cookies:", cookiePayload)
-            res.setHeader("Set-Cookie", cookiePayload)
+        const {
+            firstname = "",
+            lastname = "",
+            email = "",
+            url = "",
+            industry = "",
+            position = "",
+            company = "",
+            about = "",
+        } = sanitized
+
+        const baseOptions = {
+            path: "/",
+            sameSite: "lax" as const,
+            secure: true,
+            httpOnly: false,
+            maxAge: COOKIE_MAX_AGE,
+            domain,
         }
 
-        console.log("Profile update complete for userId:", userId)
-        return res.status(200).json({ success: true, profile: cacheRecord })
+        const cookiePayload = [
+            serialize("userId", userId, baseOptions),
+            serialize("firstname", firstname, baseOptions),
+            serialize("lastname", lastname, baseOptions),
+            serialize("email", email, baseOptions),
+            serialize("url", url, baseOptions),
+            serialize("industry", industry, baseOptions),
+            serialize("position", position, baseOptions),
+            serialize("organization", company, baseOptions),
+            serialize("about", about, baseOptions),
+            serialize("referral", referralCookie, baseOptions),
+            serialize("profileComplete", profileComplete, baseOptions),
+            serialize(NONCE_COOKIE_NAME, "", { ...baseOptions, maxAge: 0 }),
+        ]
+
+        res.setHeader("Set-Cookie", cookiePayload)
+        return res.status(200).json({ success: true })
     } catch (err: any) {
         console.error("updateProfile error:", err)
         return res.status(500).json({ error: "Internal server error" })
