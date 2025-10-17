@@ -1,7 +1,7 @@
-import { openProfileModal } from "./profileModal.js"
+// @ts-nocheck
+import { openProfileModal } from "./profileModal"
 
 const AUTH_BASE_URL = "https://go.auth.moi"
-const AUTH_LOGOUT_BASE_URL = "https://auth.me"
 const AUTH_CLIENT_ID = "30f8795364f04abf"
 const AUTH_SCOPES = "openid offline_access profile email"
 const AUTH_REDIRECT_URI = `https://auth.moi/api/profile`
@@ -21,20 +21,7 @@ async function getCookie(name) {
   }
 }
 
-async function setCookie(name, value, maxAge = 60 * 60 * 24 * 30) {
-  try {
-    await cookieStore.set({
-      name,
-      value,
-      path: "/",
-      sameSite: "lax",
-      secure: true,
-      expires: Date.now() + maxAge * 1000,
-    })
-  } catch (err) {
-    console.warn("Failed to set cookie:", name, err)
-  }
-}
+
 
 // ---------------- Nonce & State Management ----------------
 

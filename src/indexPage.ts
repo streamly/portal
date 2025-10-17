@@ -1,10 +1,11 @@
-import { initSearch } from "./search.js"
-import { initVideoModalUi } from "./videoModalUi.js"
-import { initVideoPlayer } from "./videoPlayer.js"
-import { initVideoTracking } from "./videoTracking.js"
-import { initVideoContactUi } from "./videoContactUi.js"
-import { initAuth } from "./auth.js"
-import { initProfileModal } from "./profileModal.js"
+// @ts-nocheck
+import { initSearch } from "./search"
+import { initVideoModalUi } from "./videoModalUi"
+import { initVideoPlayer } from "./videoPlayer"
+import { initVideoTracking } from "./videoTracking"
+import { initVideoContactUi } from "./videoContactUi"
+import { initAuth } from "./auth"
+import { initProfileModal } from "./profileModal"
 
 let portalConfig = null
 

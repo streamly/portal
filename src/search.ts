@@ -1,6 +1,8 @@
-import { saveVideo, saveVideos } from "./videoData.js"
+// @ts-nocheck
+import { saveVideo, saveVideos } from "./videoData"
 
-async function getCookieValue(name) {
+
+async function getCookieValue(name: string) {
   try {
     const cookie = await cookieStore.get(name)
     return cookie?.value || null
@@ -16,7 +18,7 @@ function decodeHTMLEntities(str = "") {
   return textarea.value
 }
 
-function duration(seconds) {
+function duration(seconds: number) {
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
   return `${mins}:${secs.toString().padStart(2, "0")}`
@@ -33,11 +35,18 @@ function getTimestamps() {
   }
 }
 
-function renderHit(hit) {
-  const template = document.getElementById("video-hit-template")
-  if (!template) return ""
+function renderHit(hit: any) {
+  const template = document.getElementById("video-hit-template") as HTMLTemplateElement
+  if (!template) {
+    return ""
+  }
 
-  const clone = template.content.firstElementChild.cloneNode(true)
+  const clone = template.content.firstElementChild?.cloneNode(true) as HTMLElement
+
+  if (!clone) {
+    console.error("Missing template node")
+    return ""
+  }
 
   for (const [key, value] of Object.entries(hit)) {
     const val = Array.isArray(value) ? value.join("; ") : value

@@ -3,8 +3,8 @@ import { createSign } from "crypto"
 
 // ---------------------- ENV CONSTANTS ----------------------
 
-const AUTHGEAR_ENDPOINT = process.env.AUTHGEAR_ENDPOINT as string
-const AUTHGEAR_CLIENT_ID = process.env.AUTHGEAR_CLIENT_ID as string
+const AUTHGEAR_ENDPOINT = process.env.VITE_AUTHGEAR_ENDPOINT as string
+const AUTHGEAR_CLIENT_ID = process.env.VITE_AUTHGEAR_CLIENT_ID as string
 const AUTHGEAR_CLIENT_SECRET = process.env.AUTHGEAR_CLIENT_SECRET as string
 const AUTHGEAR_ADMIN_KEY_ID = process.env.AUTHGEAR_ADMIN_KEY_ID as string
 const AUTHGEAR_ADMIN_PRIVATE_KEY_PEM = process.env.AUTHGEAR_ADMIN_PRIVATE_KEY_PEM

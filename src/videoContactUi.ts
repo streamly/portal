@@ -1,4 +1,6 @@
-import { isLoggedIn, requireAuth } from "./auth.js"
+// @ts-nocheck
+import { isLoggedIn, requireAuth } from "./auth"
+import $ from 'jquery'
 
 function ensureSessionKey() {
   if (!sessionStorage.getItem("UUID")) {

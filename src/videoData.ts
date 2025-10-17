@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 const videoStore = new Map()
 
 export function saveVideo(hit) {

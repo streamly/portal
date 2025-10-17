@@ -1,4 +1,4 @@
-export async function getCookieValue(name) {
+export async function getCookieValue(name: string) {
   if (window.cookieStore?.get) {
     try {
       const cookie = await window.cookieStore.get(name)
@@ -30,10 +30,26 @@ export async function getCookieValue(name) {
   }
 }
 
-export async function hasCookie(name) {
+export async function setCookieValue(name: string, value: any, maxAge = 60 * 60 * 24 * 30) {
+  try {
+    await cookieStore.set({
+      name,
+      value,
+      path: "/",
+      sameSite: "lax",
+      expires: Date.now() + maxAge * 1000,
+    })
+  } catch (err) {
+    console.warn("Failed to set cookie:", name, err)
+  }
+}
+
+export async function hasCookie(name: string) {
   return Boolean(await getCookieValue(name))
 }
 
 export async function isUserLoggedIn() {
   return hasCookie("userId")
 }
+
+
