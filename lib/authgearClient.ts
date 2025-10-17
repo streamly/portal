@@ -217,45 +217,24 @@ export async function fetchUserProfile(accessToken: string): Promise<AuthgearPro
     }
 }
 
-export async function fetchUserByEmail(email: string): Promise<AuthgearUser | null> {
+export async function fetchUserById(userId: string): Promise<AuthgearUser | null> {
+    const nodeId = Buffer.from(`User:${userId}`).toString('base64url')
+
     const query = `
-    query ($email: String!) {
-      getUsersByStandardAttribute(attributeName: "email", attributeValue: $email) {
+    query ($id: ID!) {
+      node(id: $id) {
         id
-        standardAttributes
-        customAttributes
-      }
-    }
-  `
-    const data = await authgearAdminRequest<{
-        getUsersByStandardAttribute: AuthgearUser[]
-    }>(query, { email })
-
-    const user = data.getUsersByStandardAttribute[0]
-
-    return user
-}
-
-export async function fetchUserAttributes(userId: string): Promise<UserAttributes> {
-    const query = `
-    query GetUser($userID: ID!) {
-      node(id: $userID) {
         ... on User {
-          id
           standardAttributes
           customAttributes
         }
       }
     }
-  `
-    const data = await authgearAdminRequest<{ node: any }>(query, { userID: userId })
+    `
 
-    if (!data.node) throw new Error("User not found")
+    const data = await authgearAdminRequest<{ node?: AuthgearUser }>(query, { id: nodeId })
 
-    return {
-        standardAttributes: data.node.standardAttributes || {},
-        customAttributes: data.node.customAttributes || {},
-    }
+    return data.node ?? null
 }
 
 // ---------------------- MAPPERS ----------------------
@@ -319,29 +298,34 @@ export async function pushUserAttributes(userId: string, attributes: UserAttribu
 }
 
 export async function updateUserMetadata(userId: string, updates: Record<string, any>) {
+    const user = await fetchUserById(userId)
+
+    if (!user) {
+        throw new Error('User not found')
+    }
+
+    console.log('User for update', user)
     try {
         if ("email" in updates) delete updates.email
 
-        const existing = await fetchUserAttributes(userId)
-
         const standardAttributes = {
-            ...existing.standardAttributes,
-            given_name: updates.firstname ?? existing.standardAttributes?.given_name ?? "",
-            family_name: updates.lastname ?? existing.standardAttributes?.family_name ?? "",
-            website: updates.url ?? existing.standardAttributes?.website,
+            ...user.standardAttributes,
+            given_name: updates.firstname ?? user.standardAttributes?.given_name ?? "",
+            family_name: updates.lastname ?? user.standardAttributes?.family_name ?? "",
+            website: updates.url ?? user.standardAttributes?.website,
         }
 
         const customAttributes = {
-            ...existing.customAttributes,
-            industry: updates.industry ?? existing.customAttributes?.industry ?? "",
-            position: updates.position ?? existing.customAttributes?.position ?? "",
-            organization: updates.company ?? existing.customAttributes?.organization ?? "",
-            about: updates.about ?? existing.customAttributes?.about,
+            ...user.customAttributes,
+            industry: updates.industry ?? user.customAttributes?.industry ?? "",
+            position: updates.position ?? user.customAttributes?.position ?? "",
+            organization: updates.company ?? user.customAttributes?.organization ?? "",
+            about: updates.about ?? user.customAttributes?.about,
         }
 
         const attributes = { standardAttributes, customAttributes }
 
-        return await pushUserAttributes(userId, attributes)
+        return await pushUserAttributes(user.id, attributes)
     } catch (err: any) {
         const msg = err.response?.data || err.message
         throw new Error(`Authgear metadata update failed: ${JSON.stringify(msg)}`)

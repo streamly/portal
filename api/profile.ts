@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 import { serialize } from "cookie"
-import { exchangeCodeForTokens, fetchUserByEmail, fetchUserProfile } from "../lib/authgearClient.js"
+import { exchangeCodeForTokens, fetchUserById, fetchUserProfile } from "../lib/authgearClient.js"
 
 const NONCE_COOKIE_NAME = "auth_nonce"
 const AUTHGEAR_HOSTS = ["go.auth.moi", "auth.moi"]
@@ -65,22 +65,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const tokens = await exchangeCodeForTokens(code)
         const profile = await fetchUserProfile(tokens.accessToken)
+        const userId = profile.sub
 
         if (!profile.email) {
             console.error('User email is missing')
             return res.status(500).send("Internal Server Error")
         }
 
-        const user = await fetchUserByEmail(profile.email)
+        console.log("Received user profile", profile)
+
+        const user = await fetchUserById(userId)
 
         if (!user) {
             console.error('User not found')
             return res.status(500).send("Internal Server Error")
         }
 
-        const { id: userId, standardAttributes, customAttributes } = user
+        const { standardAttributes, customAttributes } = user
 
-        console.log("Received user profile", profile)
         console.log("Received user", user)
 
         const firstname = standardAttributes?.given_name || ""

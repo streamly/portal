@@ -1,8 +1,8 @@
 import { VercelRequest, VercelResponse } from "@vercel/node"
 import { parse, serialize } from "cookie"
-import { getProfile, ProfileMetadata, upsertProfile } from "../db/profile.js"
+import { getProfile, ProfileMetadata } from "../db/profile.js"
 import { updateUserMetadata } from "../lib/authgearClient.js"
-import { getProfileData, setProfileData } from "../lib/redisClient.js"
+import { getProfileData } from "../lib/redisClient.js"
 import { UserMetadataSchema } from "../lib/validation.js"
 
 const NONCE_COOKIE_NAME = "auth_nonce"
@@ -32,11 +32,17 @@ function isProfileComplete(meta: ProfileMetadata) {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cookies = parse(req.headers.cookie || "")
-    const userId = cookies.userId || req.body?.userId
+    const userId: string = cookies.userId || req.body?.userId
 
-    if (!userId) return res.status(401).json({ error: "Unauthorized" })
-    if (req.method !== "GET" && req.method !== "POST")
+    if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" })
+    }
+
+    if (req.method !== "GET" && req.method !== "POST") {
         return res.status(405).json({ error: "Method not allowed" })
+    }
+
+    console.log('userId', userId)
 
     try {
         // -------------------- GET --------------------

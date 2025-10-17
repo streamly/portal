@@ -150,7 +150,7 @@ async function updateNavbar() {
 
   if (navUserName) {
     const fullName = [firstname, lastname].filter(Boolean).join(" ")
-    navUserName.textContent = fullName
+    navUserName.textContent = decodeURIComponent(fullName)
     navUserName.classList.toggle("d-none", !loggedIn || !fullName)
   }
 
