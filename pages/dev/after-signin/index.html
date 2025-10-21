@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign In Successful</title>
+  <script src="/src/afterSignInPage.ts" type="module"></script>
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+
+    .checkmark {
+      font-size: 4rem;
+      color: #28a745;
+      animation: pop 0.4s ease;
+    }
+
+    @keyframes pop {
+      0% {
+        transform: scale(0.5);
+        opacity: 0;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+
+<body class="d-flex flex-column align-items-center justify-content-center vh-100 text-center">
+
+  <div class="card shadow-sm p-5 border-0" style="max-width: 400px;">
+    <div class="mb-4">
+      <i class="bx bx-check-circle checkmark"></i>
+    </div>
+    <h4 class="fw-bold mb-2">Sign In Successful</h4>
+    <p class="text-muted small mb-4">
+      You’ve been signed in successfully. You will be redirected shortly.
+    </p>
+    <div class="spinner-border text-success mb-3" role="status" style="width: 2rem; height: 2rem;">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+</body>
+
+</html>

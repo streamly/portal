@@ -1,6 +1,7 @@
 // @ts-nocheck
-import { isLoggedIn, requireAuth } from "./auth"
+import CryptoJS from 'crypto-js'
 import $ from 'jquery'
+import { requireAuth } from './auth'
 
 function ensureSessionKey() {
   if (!sessionStorage.getItem("UUID")) {
@@ -28,12 +29,10 @@ export function initVideoContactUi() {
     $("#contactForm").data("token", token)
   })
 
-  $(document).on("submit", "#contactForm", function (event) {
+  $(document).on("submit", "#contactForm", async function (event) {
     event.preventDefault()
-    if (!isLoggedIn()) {
-      requireAuth({ action: "submit-contact" })
-      return
-    }
+
+    await requireAuth()
 
     const form = $(this)
     if (!form.length) {

@@ -1,4 +1,7 @@
-import { getVideo } from "./videoData.js"
+import videojs from 'video.js'
+import 'video.js/dist/video-js.min.css'
+import { getVideo } from "./videoData"
+import $ from 'jquery'
 
 const player = videojs("player", { autoplay: true, muted: false, controls: true })
 
@@ -21,7 +24,7 @@ export function initVideoPlayer() {
       type: "application/x-mpegURL",
     })
 
-    player.play().catch(err => console.warn("Autoplay blocked:", err))
+    player.play()?.catch(err => console.warn("Autoplay blocked:", err))
 
     document.dispatchEvent(new CustomEvent("tracking:play", { detail: data }))
   })

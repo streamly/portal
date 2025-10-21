@@ -1,14 +1,21 @@
+import $ from 'jquery'
+import { requireAuth } from './auth.js'
 import { getVideo } from "./videoData.js"
-import { pauseVideo } from "./videoPlayer.js"
-import { isLoggedIn, requireAuth } from "./auth.js"
+import { pauseVideo } from "./videoPlayer"
+// @ts-expect-error
+import * as mdb from 'mdb-ui-kit'
 
-function formatDuration(seconds) {
-  if (!seconds || seconds <= 0) return "0 minutes"
+function formatDuration(seconds: number) {
+  if (!seconds || seconds <= 0) {
+    return "0 minutes"
+  }
+
   const minutes = Math.round(seconds / 60)
+
   return `${minutes} minute${minutes !== 1 ? "s" : ""}`
 }
 
-function formatUnixTimestamp(timestamp) {
+function formatUnixTimestamp(timestamp: number) {
   const date = new Date(timestamp * 1000)
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, "0")
@@ -19,7 +26,7 @@ function formatUnixTimestamp(timestamp) {
 }
 
 export function initVideoModalUi() {
-  $(document).on("click", ".play", function () {
+  $(document).on("click", ".play", async function () {
     const { id, gated } = $(this).data()
     const data = getVideo(id)
     if (!data) {
@@ -28,8 +35,10 @@ export function initVideoModalUi() {
     }
 
     const isGated = String(gated ?? data.gated) === "1" || gated === true || data.gated === true
-    if (isGated && !isLoggedIn()) {
-      requireAuth({ action: "open-video", payload: { id } })
+
+    if (isGated) {
+      await requireAuth()
+
       return
     }
 

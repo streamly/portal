@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 function trackPlayEvent(data, player) {
   const tracker = player.newrelic?.()
   if (tracker) {

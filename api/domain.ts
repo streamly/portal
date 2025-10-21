@@ -72,8 +72,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err: any) {
         console.error("Domain handler error:", err)
         return res.status(500).json({ error: "Internal Server Error", details: err.message })
-    } finally {
-        const finishedAt = new Date().toISOString()
-        console.log(`Domain handler finished at ${finishedAt}`)
     }
 }

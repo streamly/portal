@@ -10,6 +10,7 @@ export default defineConfig({
         rollupOptions: {
             input: {
                 "dev/index": resolve(__dirname, "pages/dev/index.html"),
+                "dev/after-signin/index": resolve(__dirname, "pages/dev/after-signin/index.html"),
             },
         },
     },

@@ -1,4 +1,8 @@
-// @ts-nocheck
+import instantsearch from 'instantsearch.js'
+import * as widgets from 'instantsearch.js/es/widgets'
+import $ from 'jquery'
+import TypesenseInstantSearchAdapter from 'typesense-instantsearch-adapter'
+import { type VideoHit } from './types'
 import { saveVideo, saveVideos } from "./videoData"
 
 
@@ -35,7 +39,7 @@ function getTimestamps() {
   }
 }
 
-function renderHit(hit: any) {
+function renderHit(hit: VideoHit) {
   const template = document.getElementById("video-hit-template") as HTMLTemplateElement
   if (!template) {
     return ""
@@ -54,26 +58,28 @@ function renderHit(hit: any) {
   }
 
   const title = decodeHTMLEntities(hit.title || "")
-  clone.querySelector("h6").textContent = title
-  clone.querySelector("h6").title = title
+  clone.querySelector("h6")!.textContent = title
+  clone.querySelector("h6")!.title = title
 
-  const thumb = clone.querySelector(".thumbnail-container")
+  const thumb = clone.querySelector(".thumbnail-container")!
   thumb.setAttribute("alt", title)
-  thumb.setAttribute("title", title)
-  thumb.querySelector(".thumbnail-background").style.backgroundImage = `url('https://img.syndinet.com/${hit.id}')`
+  thumb.setAttribute("title", title);
+  (thumb.querySelector(".thumbnail-background") as HTMLElement).style.backgroundImage = `url('https://img.syndinet.com/${hit.id}')`
 
-  clone.querySelector(".duration").textContent = duration(hit.duration)
+  clone.querySelector(".duration")!.textContent = duration(hit.duration)
 
   const channelList = Array.isArray(hit.channel) ? hit.channel.join("; ") : (hit.channel || "")
-  clone.querySelector(".channel-list").textContent = channelList
+  clone.querySelector(".channel-list")!.textContent = channelList
 
-  const gatedEl = clone.querySelector(".gated")
-  if (String(hit.gated) !== "1" && hit.gated !== true) gatedEl.remove()
+  const gatedEl = clone.querySelector(".gated")!
+  if (hit.gated) {
+    gatedEl.remove()
+  }
 
   return clone.outerHTML
 }
 
-function updateJumbotron(hit) {
+function updateJumbotron(hit: VideoHit) {
   $(".jumbotron-image").css({
     background:
       `linear-gradient(to right,rgba(0,0,0,0.95) 0%,rgba(0,0,0,0.4) 40%,rgba(0,0,0,0.1) 65%,rgba(255,255,255,0) 100%),` +
@@ -91,7 +97,7 @@ function autoLoadMoreObserver() {
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-          const btn = entry.target
+          const btn = entry.target as HTMLButtonElement
           if (!btn.disabled && btn.offsetParent !== null) {
             btn.click()
           }
@@ -143,10 +149,10 @@ export async function initSearch() {
   })
 
   search.addWidgets([
-    instantsearch.widgets.configure({
+    widgets.configure({
       hitsPerPage: 12
     }),
-    instantsearch.widgets.searchBox({
+    widgets.searchBox({
       container: "#searchbox",
       placeholder: "Search",
       autofocus: true,
@@ -154,7 +160,7 @@ export async function initSearch() {
       showSubmit: true,
     }),
 
-    instantsearch.widgets.refinementList({
+    widgets.refinementList({
       container: "#channel-filter",
       attribute: "channel",
       searchable: true,
@@ -168,7 +174,7 @@ export async function initSearch() {
       },
     }),
 
-    instantsearch.widgets.numericMenu({
+    widgets.numericMenu({
       container: "#duration-filter",
       attribute: "duration",
       items: [
@@ -179,7 +185,7 @@ export async function initSearch() {
       ],
     }),
 
-    instantsearch.widgets.numericMenu({
+    widgets.numericMenu({
       container: "#created-filter",
       attribute: "created",
       items: [
@@ -191,7 +197,7 @@ export async function initSearch() {
       ],
     }),
 
-    instantsearch.widgets.infiniteHits({
+    widgets.infiniteHits({
       container: "#hits",
       transformItems(items) {
         saveVideos(items)
@@ -202,8 +208,12 @@ export async function initSearch() {
       },
       templates: {
         item(hit) {
-          if (hit.__position === 1) updateJumbotron(hit)
+          if (hit.__position === 1) {
+            // @ts-expect-error
+            updateJumbotron(hit)
+          }
           saveVideo(hit)
+          // @ts-expect-error
           return renderHit(hit)
         },
       },
@@ -215,17 +225,17 @@ export async function initSearch() {
   const urlParams = new URLSearchParams(window.location.search)
   if (urlParams.get("v")) {
     const v = urlParams.get("v")
-    search.helper.setQuery("").setQueryParameter("filters", `id:${v}`).search()
+    search!.helper!.setQuery("").setQueryParameter("filters", `id:${v}`).search()
     setTimeout(() => {
       $("#videoModal").data("shared", 1)
       $(".play").first().trigger("click")
     }, 1000)
   }
 
-  $(document).on("click", "#reload", () => search.helper.setQuery("").search())
+  $(document).on("click", "#reload", () => search!.helper!.setQuery("").search())
   $(document).on("click", "#clear", (e) => {
     e.preventDefault()
-    search.helper.clearRefinements().search()
+    search!.helper!.clearRefinements().search()
   })
 
   autoLoadMoreObserver()

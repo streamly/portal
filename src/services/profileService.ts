@@ -1,7 +1,14 @@
-export async function updateProfile(metadata) {
+import { getToken } from "../auth"
+
+export async function updateProfile(metadata: Record<string, string>) {
+  const token = await getToken()
+
   const res = await fetch("/api/user", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     credentials: "include",
     body: JSON.stringify({ metadata }),
   })
@@ -11,5 +18,5 @@ export async function updateProfile(metadata) {
     throw new Error(errBody.error || "Profile update failed")
   }
 
-  return res.json()
+  return res.json().then(parsed => parsed.data)
 }

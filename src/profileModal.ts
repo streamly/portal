@@ -1,5 +1,20 @@
-import { updateProfile } from "./services/profileService.js"
-import { getCookieValue, isUserLoggedIn } from "./utils.js"
+import $ from "jquery"
+// @ts-expect-error
+import * as mdb from "mdb-ui-kit"
+import "parsleyjs"
+import { getUserInfo } from "./auth"
+import { updateProfile } from "./services/profileService"
+
+type UserProfile = {
+  firstname: string
+  lastname: string
+  position?: string
+  company?: string
+  industry?: string
+  phone?: string
+  email: string
+  url?: string
+}
 
 const PROFILE_FIELDS = [
   "firstname",
@@ -10,29 +25,32 @@ const PROFILE_FIELDS = [
   "phone",
   "email",
   "url",
-  "about",
-]
+] as const
 
-let modalInstance = null
-let formElement = null
-let saveButton = null
-let currentProfile = null
+let modalInstance: any = null
+let formElement: HTMLFormElement | null = null
+let saveButton: HTMLButtonElement | null = null
+let currentProfile: UserProfile | null = null
 let isSubmitting = false
 
-async function loadProfileFromCookies() {
-  const profile = {}
-  for (const field of PROFILE_FIELDS) {
-    profile[field] = (await getCookieValue(field)) || ""
+async function fetchAuthgearProfile(): Promise<UserProfile> {
+  const userInfo = await getUserInfo()
+
+  const custom = userInfo.customAttributes ?? {}
+
+  return {
+    firstname: userInfo.givenName || "",
+    lastname: userInfo.familyName || "",
+    email: userInfo.email || "",
+    phone: custom.phone as string || "",
+    url: userInfo.website || "",
+    position: custom.position as string || "",
+    company: custom.company as string || "",
+    industry: custom.industry as string || "",
   }
-
-  profile.userId = (await getCookieValue("userId")) || ""
-  profile.referral = (await getCookieValue("referral")) || ""
-  profile.profileComplete = (await getCookieValue("profileComplete")) || "0"
-
-  return profile
 }
 
-function ensureModal() {
+function ensureModal(): any {
   if (!modalInstance) {
     const el = document.getElementById("profileModal")
     if (!el) throw new Error("Profile modal element not found")
@@ -41,57 +59,68 @@ function ensureModal() {
   return modalInstance
 }
 
-function ensureForm() {
+function ensureForm(): void {
   if (!formElement) {
-    formElement = document.getElementById("userProfile")
-    if (!formElement) throw new Error("Profile form not found")
-
+    const el = document.getElementById("userProfile")
+    if (!el) throw new Error("Profile form not found")
+    formElement = el as HTMLFormElement
     saveButton = formElement.querySelector("button[type=submit]")
-    if (window.Parsley && typeof window.Parsley.addValidator === "function") {
-      $(formElement).parsley()
-    }
 
+    // @ts-expect-error
+    $(formElement).parsley()
     formElement.addEventListener("submit", submitProfile)
   }
 }
 
-function disableForm(disabled) {
+function disableForm(disabled: boolean): void {
   if (!formElement) return
-  formElement.querySelectorAll("input, textarea, select, button").forEach(el => (el.disabled = disabled))
+  formElement
+    .querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLButtonElement>(
+      "input, textarea, select, button"
+    )
+    .forEach(el => (el.disabled = disabled))
   if (saveButton) {
     saveButton.disabled = disabled
     saveButton.textContent = disabled ? "Saving..." : "Save"
   }
 }
 
-function fillForm(profile) {
-  if (!formElement) return
+function fillForm(profile: UserProfile): void {
+  if (!formElement) {
+    return
+  }
   PROFILE_FIELDS.forEach(field => {
-    const input = formElement.querySelector(`[name="${field}"]`)
-    if (input && (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement)) {
-      input.value = profile?.[field] || ""
+    const input = formElement?.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      `[name="${field}"]`
+    )
+    if (input) {
+      input.value = profile[field as keyof UserProfile] || ""
     }
   })
 }
 
-function gatherFormData() {
-  const data = {}
+function gatherFormData(): UserProfile {
+  const data: Partial<UserProfile> = {}
+
   PROFILE_FIELDS.forEach(field => {
-    const input = formElement?.querySelector(`[name="${field}"]`)
+    const input = formElement?.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      `[name="${field}"]`
+    )
     let value = input?.value?.trim?.() ?? ""
-    // optional fields should be undefined if empty
-    if ((field === "url" || field === "about") && value.length === 0) {
-      value = undefined
+    if (field === "url" && value.length === 0) {
+      value = undefined as any
     }
-    data[field] = value
+    data[field] = value as any
   })
-  return data
+
+  return data as UserProfile
 }
 
-async function submitProfile(event) {
+async function submitProfile(event: SubmitEvent): Promise<void> {
   event.preventDefault()
-  if (!formElement || isSubmitting || !(await isUserLoggedIn())) return
+  if (!formElement || isSubmitting) return
 
+  // @ts-expect-error
   const parsley = $(formElement).parsley?.()
   if (parsley && !parsley.isValid()) {
     parsley.validate()
@@ -99,29 +128,22 @@ async function submitProfile(event) {
   }
 
   const metadata = gatherFormData()
-  if (!metadata.firstname || !metadata.lastname) {
-    alert("First name and Last name are required")
-    return
-  }
-
   disableForm(true)
   isSubmitting = true
 
   try {
     const payload = await updateProfile(metadata)
-
-    Object.entries(metadata).forEach(([key, value]) => {
-      if (value === undefined) return
-      document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax; Secure`
-    })
-
     currentProfile = payload?.profile || metadata
+
+    if (!currentProfile) {
+      throw new Error('Missing new profile data')
+    }
+
     fillForm(currentProfile)
 
-    alert("Profile updated successfully")
     document.dispatchEvent(new CustomEvent("auth:updated"))
     ensureModal().hide()
-  } catch (err) {
+  } catch (err: any) {
     console.error(err)
     alert(err.message || "Unable to save profile")
   } finally {
@@ -130,30 +152,24 @@ async function submitProfile(event) {
   }
 }
 
-export async function openProfileModal(options = {}) {
-  if (!(await isUserLoggedIn())) {
-    console.warn("Ignoring profile modal open request – user not logged in")
-    return
-  }
-
+export async function openProfileModal(): Promise<void> {
   try {
     ensureForm()
+    const profile = await fetchAuthgearProfile()
+    console.log('Profile to fill', profile)
+
+    fillForm(profile)
+    ensureModal().show()
   } catch (err) {
-    console.error(err)
-    return
+    console.error("Failed to open profile modal:", err)
+    alert("Unable to load user profile. Please sign in again.")
   }
-
-  const cookieProfile = await loadProfileFromCookies()
-  currentProfile = { ...cookieProfile }
-
-  fillForm(currentProfile)
-  ensureModal().show()
 }
 
-export function initProfileModal() {
+export function initProfileModal(): void {
   try {
     ensureForm()
-  } catch (err) {
+  } catch (err: any) {
     console.warn("Profile modal init skipped:", err.message)
   }
 }
