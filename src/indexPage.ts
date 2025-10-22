@@ -1,5 +1,9 @@
-// @ts-nocheck
-import $ from 'jquery'
+import "boxicons/css/boxicons.min.css"
+import 'instantsearch.css/themes/satellite.css'
+import "instantsearch.js"
+import $ from "jquery"
+import "mdb-ui-kit/css/mdb.min.css"
+
 import { initAuthUi } from "./authUi"
 import { initProfileModal } from "./profileModal"
 import { initSearch } from "./search"
