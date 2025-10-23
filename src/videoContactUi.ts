@@ -47,7 +47,6 @@ export function initVideoContactUi() {
       form.removeData("token")
     } else {
       $(".parsley-error").css("border", "1px solid red")
-      alert("Please complete all fields.")
     }
   })
 

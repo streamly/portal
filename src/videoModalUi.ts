@@ -5,6 +5,7 @@ import { getVideo } from './videoData'
 import { loadVideo, stopVideo } from './videoPlayer'
 // @ts-expect-error
 import * as mdb from 'mdb-ui-kit'
+import { trackContactSubmit, trackVideoPlay } from './newRelic'
 
 const modalElement = document.getElementById('videoModal') as HTMLElement
 const modal = new mdb.Modal(modalElement)
@@ -25,32 +26,61 @@ function formatUnixTimestamp(timestamp: number) {
   return `${y}-${m}-${d} ${h}:${min}`
 }
 
-function updateContactFormState() {
+function updateContactFormState(videoData: VideoHit) {
   const loggedIn = isUserAuthenticated()
   const $form = $('#contactForm')
   const $message = $form.find('#message')
   const $send = $form.find('#send')
   const $signin = $form.find("[data-action='signin']")
 
-  $message.css({
-    resize: 'none',
-  })
+  $message.css({ resize: 'none' })
 
   if (loggedIn) {
     $message
       .prop('disabled', false)
       .val('')
       .attr('placeholder', 'Enter your message')
+
     $send.show()
     $signin.hide()
+
+    $form.off('submit').on('submit', function (e) {
+      e.preventDefault()
+
+      // @ts-expect-error — Parsley is attached via jQuery
+      const parsley = $(this).parsley?.({ errorsMessagesDisabled: true })
+      if (parsley && !parsley.isValid()) {
+        parsley.validate()
+        return
+      }
+
+      const message = $.trim($message.val() as string)
+      if (!message) return
+
+      trackContactSubmit(videoData, message)
+
+      $message.prop('disabled', true).val('Your message has been sent. Thank you!')
+      $send.prop('disabled', true)
+      $signin.hide()
+    })
   } else {
     $message
       .prop('disabled', true)
       .val('Please sign in to contact us')
+      .attr('placeholder', '')
+      .css('color', '#6c757d')
+
     $send.hide()
+
     $signin
+      .off('click')
+      .on('click', async function (e) {
+        e.preventDefault()
+        await requireAuth()
+      })
       .text('Sign In')
-      .addClass('btn btn-secondary shadow-none')
+      .removeClass()
+      .addClass('btn btn-link shadow-none')
       .show()
   }
 }
@@ -59,13 +89,13 @@ export function initVideoModalUi() {
   $(document).on('click', '.play', async function () {
     const id = $(this).data('id') as string
     const isAuthenticated = isUserAuthenticated()
-    const data = getVideo(id) as VideoHit | undefined
-    if (!data) {
+    const videoData = getVideo(id) as VideoHit | undefined
+    if (!videoData) {
       console.warn('No video found for id:', id)
       return
     }
 
-    if (data.gated && !isAuthenticated) {
+    if (videoData.gated && !isAuthenticated) {
       console.log('Video is gated')
       requireAuth()
       return
@@ -73,17 +103,23 @@ export function initVideoModalUi() {
 
     modal.show()
 
-    $('.video-title').text(data.title || '')
-    $('.video-description').text(data.description || '')
-    $('.video-channel').text(data.channel || '')
-    $('.video-people').text(data.people?.join(', ') || 'N/A')
-    $('.video-duration').text(formatDuration(data.duration))
-    $('.video-created').text(formatUnixTimestamp(data.created))
+    $('.video-title').text(videoData.title || '')
+    $('.video-description').text(videoData.description || '')
+    $('.video-channel').text(videoData.channel || '')
+    $('.video-people').text(videoData.people?.join(', ') || 'N/A')
+    $('.video-duration').text(formatDuration(videoData.duration))
+    $('.video-created').text(formatUnixTimestamp(videoData.created))
 
-    updateContactFormState()
-    loadVideo(data)
+    updateContactFormState(videoData)
+    loadVideo(videoData)
 
-    document.dispatchEvent(new CustomEvent('video:open', { detail: data }))
+    if (isAuthenticated) {
+      trackContactSubmit(videoData)
+    }
+
+    trackVideoPlay(videoData)
+
+    document.dispatchEvent(new CustomEvent('video:open', { detail: videoData }))
   })
 
   modalElement.addEventListener('hide.mdb.modal', () => {

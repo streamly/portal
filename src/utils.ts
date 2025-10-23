@@ -4,7 +4,7 @@ import CryptoJS from 'crypto-js'
 let UUID: string | null = null
 
 
-export async function getUUID() {
+export async function getUserUUID() {
   if (UUID) {
     return UUID
   }
