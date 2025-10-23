@@ -1,6 +1,7 @@
-import { completeSignIn } from './auth'
+import { completeSignIn, configureClient } from './auth'
 
 document.addEventListener("DOMContentLoaded", async () => {
+    await configureClient()
     const result = await completeSignIn()
 
     console.log('Auth result', result, result.userInfo)
