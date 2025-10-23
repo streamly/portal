@@ -1,17 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node"
-import { serialize } from "cookie"
 import { getPortalData } from "../lib/redisClient.js"
 import { generatePortalScopedKey } from "../lib/typesenseClient.js"
 import { formatViewerId } from "../lib/utils.js"
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    const startedAt = new Date().toISOString()
-    console.log(`Domain handler started at ${startedAt}`)
-
     try {
         const host = req.headers["x-forwarded-host"] as string | undefined
-        console.log("Incoming request headers:", req.headers)
-        console.log("Detected host:", host)
 
         if (!host) {
             console.warn("Forwarded host header is missing")
@@ -45,21 +39,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const viewerId = formatViewerId(clientIp)
         console.log("Generated viewerId:", viewerId)
 
-        // Set cookie
-        const cookieStr = serialize("apiKey", scopedKey, {
-            path: "/",
-            sameSite: "lax",
-            secure: true,
-            maxAge: 3600, // 1 hour
-        })
-        res.setHeader("Set-Cookie", cookieStr)
-        console.log("Set cookie for apiKey")
-
         // Send response
         console.log("Sending response:", {
             id: portalData.id,
             name: portalData.name,
             description: portalData.description,
+            apiKey: scopedKey,
             viewerId,
         })
 
@@ -67,7 +52,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             id: portalData.id,
             name: portalData.name,
             description: portalData.description,
+            apiKey: scopedKey,
             viewerId,
+            branded: portalData.branded
         })
     } catch (err: any) {
         console.error("Domain handler error:", err)

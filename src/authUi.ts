@@ -1,8 +1,8 @@
-import { getUserInfo, isUserAuthenticated, signOut, startSignIn, requireAuth } from "./auth"
+import { getUserInfo, isUserAuthenticated, signOut, startSignIn } from "./auth"
 import { openProfileModal } from "./profileModal"
 
 async function updateNavbar() {
-  const loggedIn = await isUserAuthenticated()
+  const loggedIn = isUserAuthenticated()
   const navUserName = document.getElementById("navUserName")
 
   if (navUserName) {
@@ -12,17 +12,23 @@ async function updateNavbar() {
 
   document.querySelectorAll('[data-action="signin"].btn')
     .forEach(btn => btn.classList.toggle("d-none", loggedIn))
-  document.querySelectorAll('[data-action="signout"]')
-    .forEach(item => item.textContent = loggedIn ? "Sign Out" : "Sign In")
+
+  document.querySelectorAll('.dropdown.d-inline')
+    .forEach(el => el.classList.remove("d-none"))
+
+  document.querySelectorAll('[data-action="profile"], [data-action="settings"], [data-action="signout"], hr.dropdown-divider')
+    .forEach(item => item.classList.toggle("d-none", !loggedIn))
+
+  document.querySelectorAll('[data-action="about"].dropdown-item')
+    .forEach(item => item.classList.remove("d-none"))
 
   if (loggedIn) {
     try {
       const user = await getUserInfo()
       if (user && navUserName) {
-        const firstname = user?.givenName || ""
-        const lastname = user?.familyName || ""
+        const firstname = user.givenName || ""
+        const lastname = user.familyName || ""
         const fullName = [firstname, lastname].filter(Boolean).join(" ")
-
         navUserName.textContent = decodeURIComponent(fullName)
         navUserName.classList.toggle("d-none", !fullName)
       }

@@ -5,8 +5,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Portal</title>
-
   <script src="/src/indexPage.ts" type="module"></script>
+  <script type="module">
+    import * as mdb from 'mdb-ui-kit'
+    import { Dropdown, Modal, Ripple, initMDB } from 'mdb-ui-kit'
+    initMDB({ Dropdown, Modal, Ripple })
+  </script>
   <link href="/src/styles/dev.css" rel="stylesheet">
 
 </head>
@@ -17,7 +21,7 @@
     <div class="container-fluid d-flex align-items-center py-1">
       <!-- Left side (50%) -->
       <div class="d-flex w-50 align-items-center px-5">
-        <a class="me-4" href="/">
+        <a class="me-4" href="/dev">
           <img height="40" class="portal-logo">
         </a>
         <div id="searchbox" class="" style="width:300px;"></div>
@@ -28,25 +32,29 @@
       <!-- Right side (50%) -->
       <div class="d-flex w-50 align-items-center justify-content-end gap-2">
         <span id="navUserName" class="small fw-semibold d-none"></span>
-        <a data-action="signin" class="btn btn-link btn-sm bg-transparent me-2" title="Sign In">
+
+        <a data-action="signin" href="/signin" class="btn btn-link btn-sm bg-transparent me-2" title="Sign In">
           SIGN IN
         </a>
+
         <div class="dropdown d-inline">
-          <a class="btn btn-link btn-sm bg-transparent" href="#" data-mdb-toggle="dropdown" aria-expanded="false"
-            id="userMenuToggle">
+          <button type="button" class="btn btn-link btn-sm bg-transparent dropdown-toggle" id="userMenuToggle"
+            data-mdb-dropdown-init aria-expanded="false" title="User menu">
             <i class="bx bx-user lead"></i>
-          </a>
+          </button>
           <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuToggle">
-            <li><a data-action="profile" class="dropdown-item">Profile</a></li>
-            <li><a data-action="settings" class="dropdown-item" tabindex="-1">Settings</a></li>
-            <li><a id="about" data-action="about" type="button" class="dropdown-item">About</a></li>
+            <li><button type="button" data-action="profile" class="dropdown-item">Profile</button></li>
+            <li><button type="button" data-action="settings" class="dropdown-item">Settings</button></li>
+            <li><button type="button" data-action="about" class="dropdown-item">About</button></li>
             <li>
               <hr class="dropdown-divider">
             </li>
-            <li><a data-action="signout" class="dropdown-item">Sign In</a></li>
+            <li><button type="button" data-action="signout" class="dropdown-item">Sign Out</button></li>
           </ul>
         </div>
       </div>
+
+
     </div>
   </nav>
 
@@ -55,11 +63,11 @@
   <!-- Jumbotron -->
   <div class="content-fluid bg-dark text-white px-0 pt-5 ">
     <div class=" fw-bold py-5 px-4 bg-dark text-white small mb-4 jumbotron-image" style="
-height:500px;
-display: flex;
-align-items: center;
-background-size: cover;
-">
+      height:500px;
+      display: flex;
+      align-items: center;
+      background-size: cover;
+    ">
       <div class="row m-0 w-100">
         <div class="col-7">
           <div class="">
@@ -149,7 +157,7 @@ background-size: cover;
   </template>
 
   <!-- videoModal -->
-  <div class="modal fade " id="videoModal" tabindex="-1" aria-labelledby="videoModal" aria-hidden="true">
+  <div class="modal fade" id="videoModal" tabindex="-1" aria-labelledby="videoModal" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered bg-dark modal-fullscreen">
       <div class="modal-content">
         <div class="modal-header d-flex justify-content-between align-items-center">
@@ -190,9 +198,13 @@ background-size: cover;
             <div class="row mt-3">
               <div class="col pb-5">
                 About
+                <div class="contact-form">
+
+                </div>
                 <p class="video-description small" style="line-height:1.25;"></p>
-                Contact Us
+
                 <form id="contactForm" class="mt-2" data-parsley-validate>
+                  <label for="message">Contact Us</label>
                   <div class="mb-2">
                     <textarea class="form-control bg-white" disabled id="message" name="message"
                       placeholder="Enter your message" data-parsley-no-html-tags required></textarea>
@@ -327,7 +339,7 @@ background-size: cover;
               </p>
             </div>
 
-            <div class="d-flex justify-content-end">
+            <div class="d-flex">
               <button type="submit" class="btn btn-secondary">Save</button>
             </div>
           </form>

@@ -2,6 +2,7 @@ import instantsearch from 'instantsearch.js'
 import * as widgets from 'instantsearch.js/es/widgets'
 import $ from 'jquery'
 import TypesenseInstantSearchAdapter from 'typesense-instantsearch-adapter'
+import { isUserAuthenticated } from './auth'
 import { type VideoHit } from './types'
 import { saveVideo, saveVideos } from "./videoData"
 
@@ -40,6 +41,8 @@ function getTimestamps() {
 }
 
 function renderHit(hit: VideoHit) {
+  const isAuthenticated = isUserAuthenticated()
+
   const template = document.getElementById("video-hit-template") as HTMLTemplateElement
   if (!template) {
     return ""
@@ -52,10 +55,7 @@ function renderHit(hit: VideoHit) {
     return ""
   }
 
-  for (const [key, value] of Object.entries(hit)) {
-    const val = Array.isArray(value) ? value.join("; ") : value
-    clone.setAttribute(`data-${key}`, encodeURIComponent(String(val ?? "")))
-  }
+  clone.setAttribute("data-id", encodeURIComponent(String(hit.id ?? "")))
 
   const title = decodeHTMLEntities(hit.title || "")
   clone.querySelector("h6")!.textContent = title
@@ -72,7 +72,8 @@ function renderHit(hit: VideoHit) {
   clone.querySelector(".channel-list")!.textContent = channelList
 
   const gatedEl = clone.querySelector(".gated")!
-  if (hit.gated) {
+
+  if (!hit.gated || isAuthenticated) {
     gatedEl.remove()
   }
 
@@ -119,8 +120,7 @@ function autoLoadMoreObserver() {
   watchLoadMoreButton()
 }
 
-export async function initSearch() {
-  const apiKey = await getCookieValue("apiKey")
+export async function initSearch(apiKey: string) {
   if (!apiKey) {
     console.error("Missing apiKey cookie — cannot initialize search")
     return
@@ -200,7 +200,7 @@ export async function initSearch() {
     widgets.infiniteHits({
       container: "#hits",
       transformItems(items) {
-        saveVideos(items)
+        saveVideos(items as any as VideoHit[])
         return items.map((item, index) => ({
           ...item,
           resultPosition: index + 1,
@@ -212,7 +212,7 @@ export async function initSearch() {
             // @ts-expect-error
             updateJumbotron(hit)
           }
-          saveVideo(hit)
+          saveVideo(hit as any as VideoHit)
           // @ts-expect-error
           return renderHit(hit)
         },

@@ -1,7 +1,7 @@
-// @ts-nocheck
-import CryptoJS from 'crypto-js'
 import $ from 'jquery'
-import { requireAuth } from './auth'
+import "parsleyjs"
+import { isUserAuthenticated, requireAuth } from './auth'
+
 
 function ensureSessionKey() {
   if (!sessionStorage.getItem("UUID")) {
@@ -15,18 +15,16 @@ function enableContactForm() {
 }
 
 export function initVideoContactUi() {
-  $(document).on("click", "#contact", function (event) {
-    if (!isLoggedIn()) {
+  $(document).on("click", "#contact", async function (event) {
+    if (!(await isUserAuthenticated())) {
       event.preventDefault()
-      requireAuth({ action: "submit-contact" })
+
       return
     }
 
     ensureSessionKey()
     enableContactForm()
 
-    const token = CryptoJS.AES.encrypt($(this).data("guid"), sessionStorage.getItem("UUID")).toString()
-    $("#contactForm").data("token", token)
   })
 
   $(document).on("submit", "#contactForm", async function (event) {
@@ -40,10 +38,9 @@ export function initVideoContactUi() {
       return
     }
 
+
+    // @ts-expect-error
     if (form.parsley().isValid()) {
-      newrelic?.addPageAction?.("CONTACT", {
-        message: $.trim($("#message").val()),
-      })
       alert("Your message was sent. Thank you!")
       form[0].reset()
       $(".offcanvas.show .btn-close").trigger("click")
@@ -54,7 +51,9 @@ export function initVideoContactUi() {
     }
   })
 
-  document.addEventListener("contact:enable", () => {
-    if (isLoggedIn()) enableContactForm()
+  document.addEventListener("contact:enable", async function () {
+    if (!(await isUserAuthenticated())) {
+      enableContactForm()
+    }
   })
 }

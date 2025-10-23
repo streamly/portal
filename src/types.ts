@@ -13,4 +13,5 @@ export interface VideoHit {
     title: string
     gated: 0 | 1
     channel: string
+    __position: number
 }

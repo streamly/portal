@@ -100,3 +100,10 @@ body {
   box-sizing: none;
   box-shadow: none;
 }
+
+
+.dropdown-menu {
+  transition: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}

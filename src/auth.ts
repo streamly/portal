@@ -1,96 +1,94 @@
 import Authgear, { PromptOption, SessionState } from '@authgear/web'
 
-
 const authgearClient = Authgear
 let configured = false
+let authInProgress = false // #TODO fix case when user returns to the page
 
-console.log('Evn', import.meta.env.VITE_AUTHGEAR_CLIENT_ID!, import.meta.env.VITE_AUTHGEAR_ENDPOINT!)
-
-
-export async function getClient() {
-    if (!configured) {
-        await authgearClient.configure({
-            endpoint: import.meta.env.VITE_AUTHGEAR_ENDPOINT!,
-            clientID: import.meta.env.VITE_AUTHGEAR_CLIENT_ID!
-        })
-
-        configured = true
-    }
-
+export function getClient() {
     return authgearClient
 }
 
-
-export async function isUserAuthenticated() {
-    const client = await getClient()
-
-    console.log('session state', client.sessionState)
-
-    if (client.sessionState === SessionState.Authenticated) {
-        return true
+export async function configureClient() {
+    if (!configured) {
+        await authgearClient.configure({
+            endpoint: import.meta.env.VITE_AUTHGEAR_ENDPOINT!,
+            clientID: import.meta.env.VITE_AUTHGEAR_CLIENT_ID!,
+        })
+        configured = true
     }
-
-    return false
 }
 
-
-export async function getUserInfo() {
-    const isAuthenticated = await isUserAuthenticated()
-
-    if (!isAuthenticated) {
-        throw new Error('User is not authenticated')
-    }
-
-    const client = await getClient()
-    const user = await client.fetchUserInfo()
-
-    return user
+export function isUserAuthenticated() {
+    const client = getClient()
+    return client.sessionState === SessionState.Authenticated
 }
 
-
-export async function getToken() {
-    const isAuthenticated = await isUserAuthenticated()
-
-    if (!isAuthenticated) {
+export function getUserInfo() {
+    if (!isUserAuthenticated()) {
         throw new Error('User is not authenticated')
     }
     
-    const client = await getClient()
+    const client = getClient()
 
-    await client.refreshAccessTokenIfNeeded()
-
-    return authgearClient.accessToken!
+    return client.fetchUserInfo()
 }
 
+export async function getToken() {
+    if (!isUserAuthenticated()) {
+        throw new Error('User is not authenticated')
+    }
+    const client = getClient()
+    await client.refreshAccessTokenIfNeeded()
+    return client.accessToken!
+}
 
 export async function startSignIn() {
-    const client = await getClient()
+    if (authInProgress) {
+        return
+    }
+    authInProgress = true
+    const client = getClient()
     const redirectURI = `${window.location.origin}/dev/after-signin`
-
-    await client.startAuthentication({
-        redirectURI,
-        prompt: PromptOption.Login,
-
-    })
+    try {
+        await client.startAuthentication({
+            redirectURI,
+            prompt: PromptOption.Login,
+        })
+    } catch (err) {
+        authInProgress = false
+        throw err
+    }
 }
 
 export async function signOut() {
-    const client = await getClient()
-
-    await client.logout()
+    if (authInProgress) {
+        return
+    }
+    authInProgress = true
+    const client = getClient()
+    try {
+        await client.logout({
+            force: true,
+            redirectURI: window.location.href,
+        })
+    } catch (err) {
+        authInProgress = false
+        throw err
+    }
+    window.location.reload()
 }
 
-
 export async function completeSignIn() {
-    const client = await getClient()
-
-    return client.finishAuthentication()
+    const client = getClient()
+    const data = await client.finishAuthentication()
+    authInProgress = false
+    return data
 }
 
 export async function requireAuth() {
-    const authenticated = await isUserAuthenticated()
-    if (authenticated) return true
-
+    if (isUserAuthenticated()) {
+        return true
+    }
     await startSignIn()
     return false
 }

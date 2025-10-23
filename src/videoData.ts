@@ -1,28 +1,17 @@
-// @ts-nocheck
+import { type VideoHit } from './types'
 
-const videoStore = new Map()
+const videoStore = new Map<string, VideoHit>()
 
-export function saveVideo(hit) {
+export function saveVideo(hit: VideoHit) {
   if (!hit || !hit.id) return
   videoStore.set(hit.id, hit)
 }
 
-export function saveVideos(hits) {
+export function saveVideos(hits: VideoHit[]) {
+  console.log('Video hits', hits)
   hits.forEach(saveVideo)
 }
 
-export function getVideo(id) {
+export function getVideo(id: string) {
   return videoStore.get(id)
-}
-
-export function getAllVideos() {
-  return Array.from(videoStore.values())
-}
-
-export function deleteVideo(id) {
-  return videoStore.delete(id)
-}
-
-export function clearVideos() {
-  videoStore.clear()
 }

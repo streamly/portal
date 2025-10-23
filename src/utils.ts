@@ -1,55 +1,28 @@
-export async function getCookieValue(name: string) {
-  if (window.cookieStore?.get) {
-    try {
-      const cookie = await window.cookieStore.get(name)
-      if (cookie?.value != null) {
-        try {
-          return decodeURIComponent(cookie.value)
-        } catch (err) {
-          console.warn("Failed to decode cookieStore value:", err)
-          return cookie.value
-        }
-      }
-      return null
-    } catch (err) {
-      console.warn("cookieStore.get failed:", err)
-    }
+import CryptoJS from 'crypto-js'
+
+
+let UUID: string | null = null
+
+
+export async function getUUID() {
+  if (UUID) {
+    return UUID
   }
 
-  const match = document.cookie
-    .split("; ")
-    .find(part => part.startsWith(`${name}=`))
-  if (!match) return null
-
-  const [, rawValue = ""] = match.split("=")
   try {
-    return decodeURIComponent(rawValue)
+    const res = await fetch("https://api.ipify.org?format=json")
+    if (!res.ok) throw new Error("Failed to fetch IP")
+
+    const { ip } = await res.json()
+    if (!ip) return null
+
+    const hash = CryptoJS.MD5(ip).toString(CryptoJS.enc.Hex)
+
+    UUID = hash
+
+    return hash
   } catch (err) {
-    console.warn("Failed to decode document cookie value:", err)
-    return rawValue
+    console.error("Failed to get IP hash:", err)
+    return null
   }
 }
-
-export async function setCookieValue(name: string, value: any, maxAge = 60 * 60 * 24 * 30) {
-  try {
-    await cookieStore.set({
-      name,
-      value,
-      path: "/",
-      sameSite: "lax",
-      expires: Date.now() + maxAge * 1000,
-    })
-  } catch (err) {
-    console.warn("Failed to set cookie:", name, err)
-  }
-}
-
-export async function hasCookie(name: string) {
-  return Boolean(await getCookieValue(name))
-}
-
-export async function isUserLoggedIn() {
-  return hasCookie("userId")
-}
-
-
