@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 import { updateUserMetadata } from "../lib/authgearAdminClient.js"
 import { AuthgearError, verifyAuthgearUser } from "../lib/authgearAuth.js"
-import { UserMetadataSchema } from "../lib/validation.js"
+import { UserMetadataSchema } from "../lib/schemas.js"
+import { setProfileData } from '../lib/redisClient.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "POST") {
@@ -26,13 +27,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (!parsed.success) {
             console.warn("Invalid metadata:", parsed.error.flatten().fieldErrors)
-            
+
             return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() })
         }
 
         const sanitized = parsed.data
-        // #TODO add Redis cache
+
         await updateUserMetadata(userId, sanitized)
+        try {
+            await setProfileData(userId, sanitized)
+        } catch (error) {
+            console.error('Failed to update profile data cache', error)
+        }
+
 
         return res.status(200).json({ success: true })
     } catch (err: any) {

@@ -1,4 +1,8 @@
-import { createClient } from 'redis'
+import { createClient } from "redis"
+import type { z } from "zod"
+import { UserMetadataSchema } from "./schemas.js"
+
+type UserMetadata = z.infer<typeof UserMetadataSchema>
 
 const REDIS_URL = process.env.REDIS_URL!
 const redis = createClient({ url: REDIS_URL })
@@ -22,25 +26,11 @@ export interface PortalCacheData {
     updatedAt: string
 }
 
-export interface ProfileCacheData {
-    firstname?: string
-    lastname?: string
-    position?: string
-    company?: string
-    industry?: string
-    phone?: string
-    email?: string
-    url?: string
-    about?: string
-    avatar?: string
-    createdAt?: string
-    updatedAt?: string
-}
-
-export async function getPortalData(domain: string): Promise<PortalCacheData | null> {
+export async function getPortalData(domain: string) {
     await connectClient()
-    const dataStr = await redis.hGet('portals', domain)
+    const dataStr = await redis.hGet("portals", domain)
     if (!dataStr) return null
+
     try {
         return JSON.parse(dataStr) as PortalCacheData
     } catch (err) {
@@ -49,26 +39,31 @@ export async function getPortalData(domain: string): Promise<PortalCacheData | n
     }
 }
 
-export async function setProfileData(userId: string, metadata: Record<string, any>): Promise<ProfileCacheData> {
+export async function setProfileData(userId: string, metadata: UserMetadata) {
     await connectClient()
     const existing = await getProfileData(userId)
     const now = new Date().toISOString()
-    const payload: ProfileCacheData = {
+
+    const payload = {
         ...(existing || {}),
         ...metadata,
         createdAt: existing?.createdAt || now,
         updatedAt: now,
     }
+
+    console.log('User profile data cache', payload)
+
     await redis.set(`profile:${userId}`, JSON.stringify(payload))
     return payload
 }
 
-export async function getProfileData(userId: string): Promise<ProfileCacheData | null> {
+export async function getProfileData(userId: string) {
     await connectClient()
     const dataStr = await redis.get(`profile:${userId}`)
     if (!dataStr) return null
+
     try {
-        return JSON.parse(dataStr) as ProfileCacheData
+        return JSON.parse(dataStr)
     } catch (err) {
         console.error(`Failed to parse profile data for userId=${userId}:`, err)
         return null

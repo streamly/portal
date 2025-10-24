@@ -1,14 +1,12 @@
 import axios from "axios"
 import { createSign } from "crypto"
+import { UserMetadataSchema } from './schemas.js'
 
-// ---------------------- ENV CONSTANTS ----------------------
 
 const AUTHGEAR_ADMIN_KEY_ID = process.env.AUTHGEAR_ADMIN_KEY_ID as string
 const AUTHGEAR_ADMIN_PRIVATE_KEY_PEM = process.env.AUTHGEAR_ADMIN_PRIVATE_KEY_PEM
 const AUTHGEAR_PROJECT_ID = process.env.AUTHGEAR_PROJECT_ID as string
 const AUTHGEAR_ADMIN_GRAPHQL_ENDPOINT = process.env.AUTHGEAR_ADMIN_GRAPHQL_ENDPOINT as string
-
-// ---------------------- INTERFACES ----------------------
 
 
 interface AuthgearUser {
@@ -166,7 +164,7 @@ export async function pushUserAttributes(userId: string, attributes: UserAttribu
     return data.updateUser?.user || null
 }
 
-export async function updateUserMetadata(userId: string, updates: Record<string, any>) {
+export async function updateUserMetadata(userId: string, updates: UserMetadataSchema) {
     const user = await fetchUserById(userId)
 
     if (!user) {
@@ -175,8 +173,6 @@ export async function updateUserMetadata(userId: string, updates: Record<string,
 
     console.log('User for update', user, updates)
     try {
-        if ("email" in updates) delete updates.email
-
         const standardAttributes = {
             ...user.standardAttributes,
             given_name: updates.firstname ?? user.standardAttributes?.given_name ?? "",
