@@ -3,6 +3,46 @@ import { getUserInfo, isUserAuthenticated } from './auth'
 import { getPortalConfig } from './services/portalService'
 import type { VideoHit } from './types'
 import { getUserUUID } from './utils'
+// @ts-expect-error
+import VideojsTracker from '@newrelic/video-videojs'
+import type Player from 'video.js/dist/types/player'
+
+
+export interface VideoPlayActionData {
+    branded: boolean
+    referral?: string | null
+    pid?: string | null
+    uuid: string | null
+    guid: string
+    aid?: string | null
+    vid: string
+    title: string
+    company: string
+    trial?: number | null
+    billing?: number | null
+    score?: number | null
+    plan?: number | null
+    gated?: boolean
+    position?: number | null
+    ranking?: number | null
+}
+
+interface ContactActionData {
+    uuid: string | null
+    pid: string | null
+    gated: boolean,
+    referral?: string | null
+    guid: string
+    aid?: string | null
+    vid: string
+    company?: string | null
+    title?: string | null
+    message?: string | null
+    firstname?: string | null
+    lastname?: string | null
+    email?: string | null
+    phone?: string | null
+}
 
 
 export const newrelicAgent = new BrowserAgent({
@@ -27,6 +67,32 @@ export const newrelicAgent = new BrowserAgent({
     },
 })
 
+// @ts-expect-error
+window.newrelic = newrelicAgent
+
+let tracker = new VideojsTracker(null, {
+    heartbeat: 5000
+})
+
+export function initVideoPlayerTracker(player: Player) {
+    tracker.setPlayer(player)
+
+    // @ts-expect-error
+    nrvideo.Core.addTracker(tracker)
+
+    // @ts-expect-error
+    console.log('keys', Object.getOwnPropertyNames(nrvideo.Core), Object.getOwnPropertyNames(nrvideo))
+
+    tracker.onDownload(() => {
+        console.log('Download event')
+    })
+}
+
+
+function updateVideoPlayerTrackerCustomData(customData: VideoPlayActionData) {
+    tracker.customData = customData
+}
+
 export async function trackVideoPlay(videoData: VideoHit) {
     const isAuthenticated = isUserAuthenticated()
     let pid: string | null = null
@@ -36,11 +102,10 @@ export async function trackVideoPlay(videoData: VideoHit) {
         pid = user.sub // user id
     }
 
-
     const portalConfig = getPortalConfig()
     const uuid = await getUserUUID()
     const guid = crypto.randomUUID()
-    const actionData = {
+    const actionData: VideoPlayActionData = {
         branded: portalConfig.branded,
         referral: portalConfig.referral,
         pid,
@@ -53,30 +118,15 @@ export async function trackVideoPlay(videoData: VideoHit) {
         // trial: data.trial,
         billing: videoData.billing,
         score: videoData.score,
+        gated: Boolean(videoData.gated),
         // plan: parseInt(String(data.plan || "0")),
         position: videoData.__position,
         ranking: videoData.ranking,
     }
 
     newrelicAgent.addPageAction("PLAY", actionData)
+    updateVideoPlayerTrackerCustomData(actionData)
     console.log('Adding page action PLAY', actionData, videoData)
-}
-
-
-interface ContactActionData {
-    uuid: string | null
-    pid: string | null
-    referral?: string | null
-    guid: string
-    aid?: string | null
-    vid: string
-    company?: string | null
-    title?: string | null
-    message?: string | null
-    userFirstname?: string | null
-    userLastname?: string | null
-    userEmail?: string | null
-    userPhone?: string | null
 }
 
 export async function trackContactSubmit(videoData: VideoHit, message?: string) {
@@ -94,20 +144,21 @@ export async function trackContactSubmit(videoData: VideoHit, message?: string) 
         vid: videoData.id,
         company: videoData.channel,
         title: videoData.title,
+        gated: Boolean(videoData.gated),
         message
     }
 
     if (isAuthenticated) {
         const user = await getUserInfo()
-        console.log('User info', user)
         actionData.pid = user.sub // user id
-        actionData.userFirstname = user.givenName
-        actionData.userLastname = user.familyName
-        actionData.userEmail = user.email
-        actionData.userPhone = user.customAttributes.phone as string || null
+        actionData.firstname = user.givenName
+        actionData.lastname = user.familyName
+        actionData.email = user.email
+        actionData.phone = user.customAttributes.phone as string || null
     }
 
     newrelicAgent.addPageAction("CONTACT", actionData)
 
     console.log('Adding page action CONTACT', actionData, videoData)
 }
+

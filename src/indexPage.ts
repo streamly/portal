@@ -1,6 +1,7 @@
 import "boxicons/css/boxicons.min.css"
 import 'instantsearch.css/themes/satellite.css'
 import "instantsearch.js"
+import "./styles/dev.css"
 import $ from "jquery"
 import "mdb-ui-kit/css/mdb.min.css"
 
@@ -12,6 +13,8 @@ import { initSearch } from "./search"
 import { fetchPortalConfig, type PortalConfig } from "./services/portalService"
 import { initVideoContactUi } from "./videoContactUi"
 import { initVideoModalUi } from "./videoModalUi"
+import { getPlayer } from './videoPlayer'
+import { initVideoPlayerTracker } from './newRelic'
 
 
 function updateFavicon(url: string): void {
@@ -48,4 +51,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     initSearch(portal.apiKey)
     initVideoModalUi()
     initAboutModalUi()
+
+    const player = getPlayer()
+
+    initVideoPlayerTracker(player)
 })

@@ -12,7 +12,7 @@
     "@authgear/web": "^4.0.0",
     "@neondatabase/serverless": "^1.0.2",
     "@newrelic/browser-agent": "^1.299.0",
-    "@newrelic/video-videojs": "^4.0.1",
+    "@newrelic/video-videojs": "^4.0.2",
     "@vercel/node": "^5.3.24",
     "algoliasearch": "^5.40.1",
     "axios": "^1.12.2",

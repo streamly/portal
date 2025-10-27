@@ -101,6 +101,8 @@ export function initVideoModalUi() {
       return
     }
 
+    await trackVideoPlay(videoData)
+
     modal.show()
 
     $('.video-title').text(videoData.title || '')
@@ -116,8 +118,6 @@ export function initVideoModalUi() {
     if (isAuthenticated) {
       trackContactSubmit(videoData)
     }
-
-    trackVideoPlay(videoData)
 
     document.dispatchEvent(new CustomEvent('video:open', { detail: videoData }))
   })
