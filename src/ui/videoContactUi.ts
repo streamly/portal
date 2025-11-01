@@ -1,6 +1,6 @@
 import $ from 'jquery'
 import "parsleyjs"
-import { isUserAuthenticated, requireAuth } from './auth'
+import { isUserAuthenticated, requireAuth } from '../auth'
 
 
 function ensureSessionKey() {
@@ -37,7 +37,6 @@ export function initVideoContactUi() {
       console.warn("Contact form not found")
       return
     }
-
 
     // @ts-expect-error
     if (form.parsley().isValid()) {

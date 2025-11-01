@@ -1,20 +1,19 @@
 import "boxicons/css/boxicons.min.css"
 import 'instantsearch.css/themes/satellite.css'
 import "instantsearch.js"
-import "./styles/dev.css"
 import $ from "jquery"
 import "mdb-ui-kit/css/mdb.min.css"
+import "../styles/index.css"
 
-import { initAboutModalUi } from './aboutModalUi'
-import { configureClient } from './auth'
-import { initAuthUi } from "./authUi"
-import { initProfileModal } from "./profileModal"
-import { initSearch } from "./search"
-import { fetchPortalConfig, type PortalConfig } from "./services/portalService"
-import { initVideoContactUi } from "./videoContactUi"
-import { initVideoModalUi } from "./videoModalUi"
-import { getPlayer } from './videoPlayer'
-import { initVideoPlayerTracker } from './newRelic'
+import { initAuth } from '../auth'
+import { initVideoPlayerTracker } from '../newRelic'
+import { initSearch } from "../search"
+import { fetchPortalConfig, type PortalConfig } from "../services/portalService"
+import { initAboutModalUi } from '../ui/aboutModalUi'
+import { initAuthUi } from "../ui/authUi"
+import { initVideoContactUi } from "../ui/videoContactUi"
+import { initVideoModalUi } from "../ui/videoModalUi"
+import { getPlayer } from '../videoPlayer'
 
 
 function updateFavicon(url: string): void {
@@ -41,11 +40,12 @@ function initPortalConfigUi(portal: PortalConfig) {
 document.addEventListener("DOMContentLoaded", async () => {
     const [portal] = await Promise.all([
         fetchPortalConfig(),
-        configureClient()
+        initAuth()
     ])
 
+    console.log('Portal configuration', portal)
+
     initAuthUi()
-    initProfileModal()
     initVideoContactUi()
     initPortalConfigUi(portal)
     initSearch(portal.apiKey)

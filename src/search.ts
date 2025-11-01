@@ -2,20 +2,10 @@ import instantsearch from 'instantsearch.js'
 import * as widgets from 'instantsearch.js/es/widgets'
 import $ from 'jquery'
 import TypesenseInstantSearchAdapter from 'typesense-instantsearch-adapter'
-import { isUserAuthenticated } from './auth'
+import { checkIfUserHasCompleteProfile, isUserAuthenticated } from './auth'
 import { type VideoHit } from './types'
 import { saveVideo, saveVideos } from "./videoData"
 
-
-async function getCookieValue(name: string) {
-  try {
-    const cookie = await cookieStore.get(name)
-    return cookie?.value || null
-  } catch (err) {
-    console.error("Failed to read cookie via cookieStore:", err)
-    return null
-  }
-}
 
 function decodeHTMLEntities(str = "") {
   const textarea = document.createElement("textarea")
@@ -73,7 +63,7 @@ function renderHit(hit: VideoHit) {
 
   const gatedEl = clone.querySelector(".gated")!
 
-  if (!hit.gated || isAuthenticated) {
+  if (!hit.gated || (isAuthenticated && checkIfUserHasCompleteProfile())) {
     gatedEl.remove()
   }
 

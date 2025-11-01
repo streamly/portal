@@ -1,7 +1,7 @@
-import { getUserInfo, isUserAuthenticated, signOut, startSignIn } from "./auth"
-import { openProfileModal } from "./profileModal"
+import { redirectToProfile, getUserInfo, isUserAuthenticated, signOut, startSignIn } from "../auth"
 
-async function updateNavbar() {
+
+function updateNavbar() {
   const loggedIn = isUserAuthenticated()
   const navUserName = document.getElementById("navUserName")
 
@@ -24,7 +24,7 @@ async function updateNavbar() {
 
   if (loggedIn) {
     try {
-      const user = await getUserInfo()
+      const user = getUserInfo()
       if (user && navUserName) {
         const firstname = user.givenName || ""
         const lastname = user.familyName || ""
@@ -55,23 +55,16 @@ function handleActionClick(event: any) {
       signOut().then(() => document.dispatchEvent(new CustomEvent("auth:updated")))
       break
     case "profile":
-      openProfileModal()
+      redirectToProfile()
       break
     default:
       break
   }
 }
 
-export async function initAuthUi() {
-  await updateNavbar()
+export function initAuthUi() {
+  updateNavbar()
   document.addEventListener("click", handleActionClick)
   document.addEventListener("auth:updated", updateNavbar)
 
-  const loggedIn = await isUserAuthenticated()
-  if (loggedIn) {
-    const user = await getUserInfo()
-    console.log("User:", user)
-  } else {
-    console.log("User not signed in")
-  }
 }

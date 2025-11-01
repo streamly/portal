@@ -8,48 +8,49 @@ import VideojsTracker from '@newrelic/video-videojs'
 import type Player from 'video.js/dist/types/player'
 
 
-export interface VideoPlayActionData {
-    branded: boolean
-    referral?: string | null
-    pid?: string | null
+interface ActionData {
     uuid: string | null
+    userId?: string | null
+    referral?: string | null
     guid: string
     aid?: string | null
-    vid: string
-    title: string
-    company: string
+    videoId: string
+    videoCompany?: string | null
+    videoTitle?: string | null
+    gated?: boolean
+    hostUrl: string
+    hostDescription: string
+    hostName: string
+}
+
+export interface VideoPlayActionData extends ActionData {
+    branded: boolean
     trial?: number | null
     billing?: number | null
     score?: number | null
     plan?: number | null
-    gated?: boolean
-    position?: number | null
+    videoPosition?: number | null
     ranking?: number | null
 }
 
-interface ContactActionData {
-    uuid: string | null
-    pid: string | null
-    gated: boolean,
-    referral?: string | null
-    guid: string
-    aid?: string | null
-    vid: string
-    company?: string | null
-    title?: string | null
+export interface ContactActionData extends ActionData {
     message?: string | null
-    firstname?: string | null
-    lastname?: string | null
-    email?: string | null
-    phone?: string | null
+    userFirstname?: string | null
+    userLastname?: string | null
+    userEmail?: string | null
+    userPhone?: string | null
 }
 
+// @ts-expect-error
+window.NREUM = window.NREUM || {}
+// @ts-expect-error
+window.NREUM.debug = true
 
 export const newrelicAgent = new BrowserAgent({
     init: {
         distributed_tracing: { enabled: true },
         privacy: { cookies_enabled: true },
-        ajax: { deny_list: ["bam.nr-data.net"] },
+        ajax: { deny_list: ["bam.nr-data.net"] }
     },
     loader_config: {
         accountID: "3796945",
@@ -64,7 +65,7 @@ export const newrelicAgent = new BrowserAgent({
         licenseKey: "NRJS-1a688493c87fd896c70",
         applicationID: "1134427048",
         sa: 1,
-    },
+    }
 })
 
 // @ts-expect-error
@@ -88,77 +89,74 @@ export function initVideoPlayerTracker(player: Player) {
     })
 }
 
-
 function updateVideoPlayerTrackerCustomData(customData: VideoPlayActionData) {
     tracker.customData = customData
 }
 
-export async function trackVideoPlay(videoData: VideoHit) {
+async function buildBaseActionData(videoData: VideoHit) {
     const isAuthenticated = isUserAuthenticated()
-    let pid: string | null = null
-
-    if (isAuthenticated) {
-        const user = await getUserInfo()
-        pid = user.sub // user id
-    }
-
     const portalConfig = getPortalConfig()
     const uuid = await getUserUUID()
     const guid = crypto.randomUUID()
-    const actionData: VideoPlayActionData = {
-        branded: portalConfig.branded,
-        referral: portalConfig.referral,
-        pid,
+
+    const base: ActionData = {
         uuid,
         guid,
+        referral: portalConfig.referral,
         aid: videoData.uid,
-        vid: videoData.id,
-        title: videoData.title,
-        company: videoData.channel,
-        // trial: data.trial,
+        videoId: videoData.id,
+        videoTitle: videoData.title,
+        videoCompany: videoData.channel,
+        gated: Boolean(videoData.gated),
+        hostUrl: window.location.origin,
+        hostDescription: portalConfig.description,
+        hostName: portalConfig.name,
+    }
+
+    if (isAuthenticated) {
+        const user = getUserInfo()
+        console.log('user info', user)
+        base.userId = user.sub
+        return {
+            ...base,
+            userFirstname: user.givenName,
+            userLastname: user.familyName,
+            userCompany: user.customAttributes.company as string,
+            userPosition: user.customAttributes.position as string,
+            userIndustry: user.customAttributes.industry as string,
+            userEmail: user.email,
+            userPhone: user.customAttributes.phone as string | null,
+        }
+    }
+
+    return base
+}
+
+export async function trackVideoPlay(videoData: VideoHit) {
+    const base = await buildBaseActionData(videoData)
+
+    const actionData: VideoPlayActionData = {
+        ...base,
+        branded: getPortalConfig().branded,
         billing: videoData.billing,
         score: videoData.score,
-        gated: Boolean(videoData.gated),
-        // plan: parseInt(String(data.plan || "0")),
-        position: videoData.__position,
+        videoPosition: videoData.__position,
         ranking: videoData.ranking,
     }
 
     newrelicAgent.addPageAction("PLAY", actionData)
     updateVideoPlayerTrackerCustomData(actionData)
-    console.log('Adding page action PLAY', actionData, videoData)
+    console.log("Adding page action PLAY", actionData, videoData)
 }
 
 export async function trackContactSubmit(videoData: VideoHit, message?: string) {
-    const portalConfig = getPortalConfig()
-    const uuid = await getUserUUID()
-    const guid = crypto.randomUUID()
-    const isAuthenticated = isUserAuthenticated()
+    const base = await buildBaseActionData(videoData)
 
     const actionData: ContactActionData = {
-        uuid,
-        pid: null,
-        referral: portalConfig.referral,
-        guid,
-        aid: videoData.uid,
-        vid: videoData.id,
-        company: videoData.channel,
-        title: videoData.title,
-        gated: Boolean(videoData.gated),
-        message
-    }
-
-    if (isAuthenticated) {
-        const user = await getUserInfo()
-        actionData.pid = user.sub // user id
-        actionData.firstname = user.givenName
-        actionData.lastname = user.familyName
-        actionData.email = user.email
-        actionData.phone = user.customAttributes.phone as string || null
+        ...base,
+        message: message?.trim() || undefined,
     }
 
     newrelicAgent.addPageAction("CONTACT", actionData)
-
-    console.log('Adding page action CONTACT', actionData, videoData)
+    console.log("Adding page action CONTACT", actionData)
 }
-

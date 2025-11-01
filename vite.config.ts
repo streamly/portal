@@ -9,8 +9,9 @@ export default defineConfig({
         emptyOutDir: true,
         rollupOptions: {
             input: {
-                "dev/index": resolve(__dirname, "pages/dev/index.html"),
-                "dev/after-signin/index": resolve(__dirname, "pages/dev/after-signin/index.html"),
+                "index": resolve(__dirname, "pages/index.html"),
+                "after-signin/index": resolve(__dirname, "pages/after-signin/index.html"),
+                "profile/index": resolve(__dirname, "pages/profile/index.html"),
             },
         },
     },

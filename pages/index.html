@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Portal</title>
-  <script src="/src/indexPage.ts" type="module"></script>
+  <script src="/src/pages/indexPage.ts" type="module"></script>
   <script type="module">
     import * as mdb from 'mdb-ui-kit'
     import { Dropdown, Modal, Ripple, initMDB } from 'mdb-ui-kit'
@@ -21,7 +21,7 @@
     <div class="container-fluid d-flex align-items-center py-1">
       <!-- Left side (50%) -->
       <div class="d-flex w-50 align-items-center px-5">
-        <a class="me-4" href="/dev">
+        <a class="me-4" href="/">
           <img height="40" class="portal-logo">
         </a>
         <div id="searchbox" class="" style="width:300px;"></div>
@@ -33,7 +33,7 @@
       <div class="d-flex w-50 align-items-center justify-content-end gap-2">
         <span id="navUserName" class="small fw-semibold d-none"></span>
 
-        <a data-action="signin" href="/signin" class="btn btn-link btn-sm bg-transparent me-2" title="Sign In">
+        <a data-action="signin" class="btn btn-link btn-sm bg-transparent me-2" title="Sign In">
           SIGN IN
         </a>
 
@@ -57,8 +57,6 @@
 
     </div>
   </nav>
-
-
 
   <!-- Jumbotron -->
   <div class="content-fluid bg-dark text-white px-0 pt-5 ">

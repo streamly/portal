@@ -10,7 +10,7 @@ export async function updateProfile(metadata: Record<string, string>) {
       Authorization: `Bearer ${token}`,
     },
     credentials: "include",
-    body: JSON.stringify({ metadata }),
+    body: JSON.stringify(metadata),
   })
 
   if (!res.ok) {

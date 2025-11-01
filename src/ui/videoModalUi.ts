@@ -1,11 +1,11 @@
 import $ from 'jquery'
-import { isUserAuthenticated, requireAuth } from './auth'
-import type { VideoHit } from './types'
-import { getVideo } from './videoData'
-import { loadVideo, stopVideo } from './videoPlayer'
+import { checkIfUserHasCompleteProfile, isUserAuthenticated, redirectToProfile, requireAuth } from '../auth'
+import type { VideoHit } from '../types'
+import { getVideo } from '../videoData'
+import { loadVideo, stopVideo } from '../videoPlayer'
 // @ts-expect-error
 import * as mdb from 'mdb-ui-kit'
-import { trackContactSubmit, trackVideoPlay } from './newRelic'
+import { trackContactSubmit, trackVideoPlay } from '../newRelic'
 
 const modalElement = document.getElementById('videoModal') as HTMLElement
 const modal = new mdb.Modal(modalElement)
@@ -95,10 +95,20 @@ export function initVideoModalUi() {
       return
     }
 
-    if (videoData.gated && !isAuthenticated) {
-      console.log('Video is gated')
-      requireAuth()
-      return
+    if (videoData.gated) {
+      console.log('Gated video')
+
+      if (!isAuthenticated) {
+        requireAuth()
+        return
+      }
+
+      if (!checkIfUserHasCompleteProfile()) {
+        redirectToProfile()
+        return
+      }
+
+      trackContactSubmit(videoData)
     }
 
     await trackVideoPlay(videoData)
@@ -114,10 +124,6 @@ export function initVideoModalUi() {
 
     updateContactFormState(videoData)
     loadVideo(videoData)
-
-    if (isAuthenticated) {
-      trackContactSubmit(videoData)
-    }
 
     document.dispatchEvent(new CustomEvent('video:open', { detail: videoData }))
   })

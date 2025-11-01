@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>User Profile</title>
+
+  <!-- Vite entry (loads JS before body) -->
+  <script type="module" src="/src/pages/profilePage.ts"></script>
+</head>
+
+<body class="bg-light">
+
+  <!-- Notification placeholder -->
+  <div id="notification-container"></div>
+
+  <!-- Loader (VISIBLE by default) -->
+  <div id="loader" style="display:flex;justify-content:center;align-items:center;height:100vh;">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+
+  <!-- Profile Container (HIDDEN by default) -->
+  <div id="profile-container" class="container py-5" style="display:none;">
+    <div class="row justify-content-center">
+      <div class="col-md-8 col-lg-6">
+        <div class="card shadow-3 border-0">
+          <div class="card-body p-5">
+            <h4 class="mb-4 text-center">Edit Your Profile</h4>
+
+            <form id="userProfile" method="POST" data-parsley-validate>
+              <div class="mb-3">
+                <label class="form-label" for="firstname">First Name</label>
+                <input type="text" id="firstname" name="firstname" class="form-control" required />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" for="lastname">Last Name</label>
+                <input type="text" id="lastname" name="lastname" class="form-control" required />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" for="position">Title / Position</label>
+                <input type="text" id="position" name="position" class="form-control" required />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" for="company">Company / Organization</label>
+                <input type="text" id="company" name="company" class="form-control" required />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" for="industry">Industry</label>
+                <select id="industry" name="industry" class="form-select" required>
+                  <option value="">Select an industry</option>
+                  <option value="Advertising">Advertising</option>
+                  <option value="Accounting">Accounting</option>
+                  <option value="Automotive">Automotive</option>
+                  <option value="Broadcast Media">Broadcast Media</option>
+                  <option value="Education">Education</option>
+                  <option value="Financial Services">Financial Services</option>
+                  <option value="Healthcare">Healthcare</option>
+                  <option value="Hospitality">Hospitality</option>
+                  <option value="Manufacturing">Manufacturing</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="Technology">Technology</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" for="phone">Phone</label>
+                <input type="tel" id="phone" name="phone" class="form-control" required />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" for="email">Email</label>
+                <input type="email" id="email" name="email" class="form-control bg-body-secondary" readonly required />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" for="url">Website</label>
+                <input type="url" id="url" name="url" class="form-control" />
+              </div>
+
+              <p class="mt-4 mb-3 text-muted small">
+                By using this service, you acknowledge and agree that you are
+                voluntarily providing your profile information to content
+                providers. You further confirm that you have read,
+                understood, and accepted our Terms of Service and Privacy Policy.
+              </p>
+
+              <div class="d-flex justify-content-start">
+                <button type="submit" class="btn btn-primary btn-sm px-4">
+                  Save
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

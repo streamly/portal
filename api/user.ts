@@ -16,7 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(401).json({ error: "Missing user ID in token" })
         }
 
-        const metadataInput = req.body?.metadata
+        const metadataInput = req.body
         if (!metadataInput || typeof metadataInput !== "object") {
             return res.status(400).json({ error: "Missing metadata" })
         }

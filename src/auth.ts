@@ -1,8 +1,9 @@
-import Authgear, { PromptOption, SessionState } from '@authgear/web'
+import Authgear, { PromptOption, SessionState, type UserInfo } from '@authgear/web'
 
 const authgearClient = Authgear
+let user: UserInfo
 let configured = false
-let authInProgress = false // #TODO fix case when user returns to the page
+let authInProgress = sessionStorage.getItem("authInProgress") === "true"
 
 export function getClient() {
     return authgearClient
@@ -18,6 +19,14 @@ export async function configureClient() {
     }
 }
 
+export async function initAuth() {
+    await configureClient()
+
+    if (isUserAuthenticated()) {
+        user = await authgearClient.fetchUserInfo()
+    }
+}
+
 export function isUserAuthenticated() {
     const client = getClient()
     return client.sessionState === SessionState.Authenticated
@@ -27,10 +36,8 @@ export function getUserInfo() {
     if (!isUserAuthenticated()) {
         throw new Error('User is not authenticated')
     }
-    
-    const client = getClient()
 
-    return client.fetchUserInfo()
+    return user
 }
 
 export async function getToken() {
@@ -46,14 +53,17 @@ export async function startSignIn() {
     if (authInProgress) {
         return
     }
+
     authInProgress = true
     const client = getClient()
-    const redirectURI = `${window.location.origin}/dev/after-signin`
+    const redirectURI = `${window.location.origin}/after-signin`
     try {
         await client.startAuthentication({
             redirectURI,
             prompt: PromptOption.Login,
         })
+
+        authInProgress = false
     } catch (err) {
         authInProgress = false
         throw err
@@ -89,6 +99,38 @@ export async function requireAuth() {
     if (isUserAuthenticated()) {
         return true
     }
+
     await startSignIn()
+
     return false
+}
+
+export function getMissingProfileFields(): string[] {
+    if (!user) {
+        throw new Error('User is not authenticated')
+    }
+
+    const custom = user.customAttributes ?? {}
+
+    const required = {
+        firstname: user.givenName,
+        lastname: user.familyName,
+        email: user.email,
+        phone: custom.phone,
+        position: custom.position,
+        company: custom.company,
+        industry: custom.industry,
+    }
+
+    return Object.entries(required)
+        .filter(([_, value]) => typeof value !== "string" || value.trim() === "")
+        .map(([key]) => key)
+}
+
+export function checkIfUserHasCompleteProfile() {
+    return getMissingProfileFields().length === 0
+}
+
+export function redirectToProfile() {
+    return window.location.href = "/profile"
 }
